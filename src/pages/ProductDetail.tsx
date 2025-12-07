@@ -14,17 +14,20 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
     const [reviews, setReviews] = useState<Review[]>([]);
     const [hasReviewed, setHasReviewed] = useState(false);
     const [discordLink, setDiscordLink] = useState("");
+    const [currentImage, setCurrentImage] = useState(product.imageUrl);
+
+    useEffect(() => {
+        setCurrentImage(product.imageUrl);
+    }, [product.imageUrl]);
 
     useEffect(() => {
         const loadData = async () => {
             const r = await db.getPublicReviews(product.id);
             setReviews(r);
-
             if (user) {
                 const reviewed = await db.hasUserReviewed(user.userId, product.id);
                 setHasReviewed(reviewed);
             }
-
             const settings = await db.getSettings();
             setDiscordLink(settings.discordLink);
         };
@@ -86,7 +89,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
             <div className="relative h-[70vh] w-full overflow-hidden group">
                 <div className="absolute inset-0">
                     <img
-                        src={product.imageUrl}
+                        src={currentImage}
                         alt={product.title}
                         onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800"; }}
                         className="w-full h-full object-cover blur-sm opacity-40 scale-105 group-hover:scale-110 transition duration-[20s] ease-linear"
@@ -158,6 +161,32 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
                         <div className="min-h-[400px]">
                             {activeTab === 'overview' ? (
                                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    {/* Image Gallery */}
+                                    {(product.images && product.images.length > 0) && (
+                                        <div className="glass-panel p-6 rounded-2xl border border-gray-800 bg-[#0a0a0a]/80 backdrop-blur-xl">
+                                            <h3 className="text-xl font-display font-bold text-white mb-4 flex items-center gap-3">
+                                                <i className="fa-solid fa-images text-fuchsia-500"></i> Gallery
+                                            </h3>
+                                            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                                                <button
+                                                    onClick={() => setCurrentImage(product.imageUrl)}
+                                                    className={`relative w-32 h-24 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all duration-300 ${currentImage === product.imageUrl ? 'border-fuchsia-500 scale-105 shadow-[0_0_15px_rgba(232,121,249,0.3)]' : 'border-gray-800 hover:border-gray-600 opacity-70 hover:opacity-100'}`}
+                                                >
+                                                    <img src={product.imageUrl} className="w-full h-full object-cover" />
+                                                </button>
+                                                {product.images.map((img, i) => (
+                                                    <button
+                                                        key={i}
+                                                        onClick={() => setCurrentImage(img)}
+                                                        className={`relative w-32 h-24 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all duration-300 ${currentImage === img ? 'border-fuchsia-500 scale-105 shadow-[0_0_15px_rgba(232,121,249,0.3)]' : 'border-gray-800 hover:border-gray-600 opacity-70 hover:opacity-100'}`}
+                                                    >
+                                                        <img src={img} className="w-full h-full object-cover" />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="glass-panel p-8 rounded-2xl border border-gray-800 bg-[#0a0a0a]/80 backdrop-blur-xl">
                                         <h3 className="text-2xl font-display font-bold text-white mb-6 flex items-center gap-3">
                                             <i className="fa-solid fa-align-left text-violet-500"></i> Description

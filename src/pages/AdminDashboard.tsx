@@ -513,7 +513,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                 onClick={() => setEditingProduct({
                                     title: "", description: "", priceInr: 0, priceOwo: 0,
                                     category: categories[0]?.name || "", features: [],
-                                    imageUrl: "", downloadUrl: "", type: "workflow", meta: {}
+                                    imageUrl: "", images: [], downloadUrl: "", type: "workflow", meta: {}
                                 })}
                                 className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-600/20"
                             >
@@ -566,6 +566,41 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                                 <input type="file" className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" onChange={handleFileUpload} />
                                                 <p className="text-xs text-gray-500 mb-2 mt-2">OR enter external URL:</p>
                                                 <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="https://..." value={editingProduct.downloadUrl || ""} onChange={e => setEditingProduct({ ...editingProduct, downloadUrl: e.target.value })} />
+                                            </div>
+
+                                            <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
+                                                <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase">Additional Images</h3>
+                                                <div className="space-y-3">
+                                                    {(editingProduct.images || []).map((img, idx) => (
+                                                        <div key={idx} className="flex gap-2">
+                                                            <input
+                                                                className="flex-1 bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white"
+                                                                value={img}
+                                                                onChange={(e) => {
+                                                                    const newImages = [...(editingProduct.images || [])];
+                                                                    newImages[idx] = e.target.value;
+                                                                    setEditingProduct({ ...editingProduct, images: newImages });
+                                                                }}
+                                                                placeholder="Image URL"
+                                                            />
+                                                            <button
+                                                                onClick={() => {
+                                                                    const newImages = (editingProduct.images || []).filter((_, i) => i !== idx);
+                                                                    setEditingProduct({ ...editingProduct, images: newImages });
+                                                                }}
+                                                                className="p-2 text-red-500 hover:bg-red-500/10 rounded"
+                                                            >
+                                                                <i className="fa-solid fa-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    <button
+                                                        onClick={() => setEditingProduct({ ...editingProduct, images: [...(editingProduct.images || []), ""] })}
+                                                        className="text-sm text-blue-400 font-bold hover:text-white flex items-center gap-2"
+                                                    >
+                                                        <i className="fa-solid fa-plus"></i> Add Image
+                                                    </button>
+                                                </div>
                                             </div>
 
                                             <div className="bg-gray-800/50 p-4 rounded border border-gray-700">

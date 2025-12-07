@@ -25,6 +25,7 @@ export interface Product {
     priceOwo: number;
     category: string;
     imageUrl: string;
+    images?: string[];
     downloadUrl?: string;
     type: "workflow" | "pack" | "audio" | "other";
     meta?: {

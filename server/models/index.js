@@ -20,6 +20,7 @@ const productSchema = new mongoose.Schema({
     priceOwo: { type: Number, required: true },
     category: { type: String, required: true },
     imageUrl: { type: String, required: true },
+    images: { type: [String], default: [] },
     downloadUrl: String,
     type: { type: String, enum: ['workflow', 'pack', 'audio', 'other'], required: true },
     meta: {
