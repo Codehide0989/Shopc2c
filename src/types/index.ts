@@ -103,6 +103,7 @@ export interface AppSettings {
     heroImage: string;
     maintenanceMode: boolean;
     chatEnabled: boolean;
+    communityLink?: string;
     allowedDomains?: string[];
 }
 
@@ -118,4 +119,32 @@ export interface Order {
     memo: string;
     status: 'pending' | 'approved' | 'rejected';
     timestamp: number;
+}
+
+export interface ForumReply {
+    id: string;
+    content: string;
+    author: {
+        userId?: string;
+        username: string;
+    };
+    createdAt: number;
+}
+
+export interface ForumPost {
+    _id: string;
+    id: string;
+    title: string;
+    content: string;
+    tags: string[];
+    author: {
+        userId?: string;
+        username: string;
+    };
+    status: 'pending' | 'approved' | 'rejected';
+    createdAt: number;
+    likes: number;
+    likedBy: string[];
+    replies: ForumReply[];
+    images?: string[];
 }

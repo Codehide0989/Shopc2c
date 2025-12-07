@@ -7,9 +7,10 @@ interface ProductDetailProps {
     user: User | null;
     onBack: () => void;
     onPurchase: () => void;
+    previewMode?: boolean;
 }
 
-const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, onPurchase }) => {
+const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, onPurchase, previewMode = false }) => {
     const [activeTab, setActiveTab] = useState<'overview' | 'reviews'>('overview');
     const [reviews, setReviews] = useState<Review[]>([]);
     const [hasReviewed, setHasReviewed] = useState(false);
@@ -22,6 +23,9 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
 
     useEffect(() => {
         const loadData = async () => {
+            // In preview mode, we might not have a real ID or real reviews
+            if (previewMode) return;
+
             const r = await db.getPublicReviews(product.id);
             setReviews(r);
             if (user) {
@@ -32,12 +36,14 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
             setDiscordLink(settings.discordLink);
         };
         loadData();
-    }, [product.id, user]);
+    }, [product.id, user, previewMode]);
     const [newReview, setNewReview] = useState({ rating: 5, comment: "" });
     const [submitted, setSubmitted] = useState(false);
 
     // Realtime Reviews Polling
     React.useEffect(() => {
+        if (previewMode) return;
+
         const interval = setInterval(async () => {
             const latestReviews = await db.getPublicReviews(product.id);
             // Only update if length changed to avoid unnecessary re-renders (simple check)
@@ -49,12 +55,18 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
         }, 3000); // Poll every 3 seconds
 
         return () => clearInterval(interval);
-    }, [product.id]);
+    }, [product.id, previewMode]);
 
     const [hasPurchased, setHasPurchased] = useState(false);
 
     useEffect(() => {
         const checkAccess = async () => {
+            // In preview mode, assume not purchased or purchased based on desire, but here false is fine or logic to simulate
+            if (previewMode) {
+                setHasPurchased(false);
+                return;
+            }
+
             if (!user) {
                 setHasPurchased(product.priceInr === 0);
                 return;
@@ -67,11 +79,15 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
             setHasPurchased(has);
         };
         checkAccess();
-    }, [user, product.id, product.priceInr]);
+    }, [user, product.id, product.priceInr, previewMode]);
 
 
     const handleSubmitReview = (e: React.FormEvent) => {
         e.preventDefault();
+        if (previewMode) {
+            alert("Review submission disabled in preview mode.");
+            return;
+        }
         if (!user) return;
         db.addReview({
             productId: product.id,
@@ -84,9 +100,9 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
     };
 
     return (
-        <div className="min-h-screen pb-20 bg-[#050505]">
+        <div className={`bg-[#050505] ${previewMode ? 'h-full overflow-y-auto custom-scrollbar' : 'min-h-screen pb-20'}`}>
             {/* Cinematic Header Backdrop */}
-            <div className="relative h-[70vh] w-full overflow-hidden group">
+            <div className={`relative w-full overflow-hidden group ${previewMode ? 'h-[40vh]' : 'h-[70vh]'}`}>
                 <div className="absolute inset-0">
                     <img
                         src={currentImage}
@@ -99,10 +115,12 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
                 </div>
                 <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
 
-                <div className="absolute top-24 left-0 w-full px-4 md:px-8 max-w-7xl mx-auto h-full flex flex-col justify-center pb-32">
-                    <button onClick={onBack} className="absolute top-0 left-4 md:left-8 mb-8 text-gray-400 hover:text-white flex items-center text-sm font-bold transition bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/5 hover:border-white/20 w-fit group/back">
-                        <i className="fa-solid fa-arrow-left mr-2 group-hover/back:-translate-x-1 transition"></i> Back to Store
-                    </button>
+                <div className={`absolute left-0 w-full px-4 md:px-8 max-w-7xl mx-auto h-full flex flex-col justify-center ${previewMode ? 'top-0 pb-10' : 'top-24 pb-32'}`}>
+                    {!previewMode && (
+                        <button onClick={onBack} className="absolute top-0 left-4 md:left-8 mb-8 text-gray-400 hover:text-white flex items-center text-sm font-bold transition bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/5 hover:border-white/20 w-fit group/back">
+                            <i className="fa-solid fa-arrow-left mr-2 group-hover/back:-translate-x-1 transition"></i> Back to Store
+                        </button>
+                    )}
 
                     <div className="max-w-4xl animate-in fade-in slide-in-from-bottom-8 duration-700">
                         <div className="flex flex-wrap gap-3 mb-6">
@@ -138,7 +156,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
                 </div>
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 md:px-8 -mt-32 relative z-10">
+            <div className={`max-w-7xl mx-auto px-4 md:px-8 ${previewMode ? '-mt-10' : '-mt-32'} relative z-10`}>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
                     {/* Main Content */}
                     <div className="lg:col-span-2 space-y-8">
@@ -167,20 +185,22 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
                                             <h3 className="text-xl font-display font-bold text-white mb-4 flex items-center gap-3">
                                                 <i className="fa-solid fa-images text-fuchsia-500"></i> Gallery
                                             </h3>
-                                            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                                 <button
                                                     onClick={() => setCurrentImage(product.imageUrl)}
-                                                    className={`relative w-32 h-24 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all duration-300 ${currentImage === product.imageUrl ? 'border-fuchsia-500 scale-105 shadow-[0_0_15px_rgba(232,121,249,0.3)]' : 'border-gray-800 hover:border-gray-600 opacity-70 hover:opacity-100'}`}
+                                                    className={`relative group aspect-video rounded-xl overflow-hidden border-2 transition-all duration-300 ${currentImage === product.imageUrl ? 'border-fuchsia-500 shadow-[0_0_20px_rgba(232,121,249,0.5)] scale-[1.02] z-10' : 'border-gray-800 hover:border-gray-600 opacity-70 hover:opacity-100 hover:scale-105'}`}
                                                 >
                                                     <img src={product.imageUrl} className="w-full h-full object-cover" />
+                                                    <div className={`absolute inset-0 bg-gradient-to-t from-black/50 to-transparent transition-opacity ${currentImage === product.imageUrl ? 'opacity-0' : 'opacity-100'}`}></div>
                                                 </button>
                                                 {product.images.map((img, i) => (
                                                     <button
                                                         key={i}
                                                         onClick={() => setCurrentImage(img)}
-                                                        className={`relative w-32 h-24 rounded-xl overflow-hidden border-2 flex-shrink-0 transition-all duration-300 ${currentImage === img ? 'border-fuchsia-500 scale-105 shadow-[0_0_15px_rgba(232,121,249,0.3)]' : 'border-gray-800 hover:border-gray-600 opacity-70 hover:opacity-100'}`}
+                                                        className={`relative group aspect-video rounded-xl overflow-hidden border-2 transition-all duration-300 ${currentImage === img ? 'border-fuchsia-500 shadow-[0_0_20px_rgba(232,121,249,0.5)] scale-[1.02] z-10' : 'border-gray-800 hover:border-gray-600 opacity-70 hover:opacity-100 hover:scale-105'}`}
                                                     >
                                                         <img src={img} className="w-full h-full object-cover" />
+                                                        <div className={`absolute inset-0 bg-gradient-to-t from-black/50 to-transparent transition-opacity ${currentImage === img ? 'opacity-0' : 'opacity-100'}`}></div>
                                                     </button>
                                                 ))}
                                             </div>

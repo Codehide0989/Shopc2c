@@ -16,13 +16,21 @@ import Profile from "./pages/Profile";
 import AdminDashboard from "./pages/AdminDashboard";
 import StaffDashboard from "./pages/StaffDashboard";
 import CommunityChat from "./components/CommunityChat";
+import CommunityForum from "./pages/CommunityForum";
+import CreateForumPost from "./pages/CreateForumPost";
+import ForumPostDetail from "./pages/ForumPostDetail";
 import GlobalChat from "./pages/GlobalChat";
+
+// ... (existing code)
+
+
 
 const App = () => {
     const [view, setView] = useState("home");
     const [user, setUser] = useState<User | null>(AuthManager.getCurrentUser());
     const [isAdmin, setIsAdmin] = useState(AuthManager.isAdminLoggedIn());
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [settings, setSettings] = useState<AppSettings>({
@@ -132,6 +140,13 @@ const App = () => {
                 )}
                 {view === "about" && <About />}
                 {view === "contact" && <Contact />}
+                {view === "contact" && <Contact />}
+                {view === "community" && <CommunityForum user={user} settings={settings} onNavigate={(v, id) => {
+                    if (id) setSelectedPostId(id);
+                    setView(v);
+                }} onLogout={handleLogout} />}
+                {view === "community-create" && <CreateForumPost onNavigate={setView} user={user} />}
+                {view === "community-post" && selectedPostId && <ForumPostDetail postId={selectedPostId} onNavigate={setView} user={user} />}
                 {view === "profile" && user && <Profile user={user} />}
                 {view === "chat" && <GlobalChat user={user || (isAdmin ? { userId: 'admin', username: 'Administrator', email: 'admin@shopc2c.io', isBanned: false, createdAt: 0, _id: 'admin', password: '' } : null)} onLogout={handleLogout} />}
             </>

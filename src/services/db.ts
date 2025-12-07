@@ -1,4 +1,4 @@
-import { User, Product, Category, UserPermission, Coupon, Review, AppSettings, AdminCreds, ChatMessage, Order, ServerLog } from "../types";
+import { User, Product, Category, UserPermission, Coupon, Review, AppSettings, AdminCreds, ChatMessage, Order, ServerLog, ForumPost } from "../types";
 import { generateId } from "../utils/helpers";
 import { DEFAULT_DISCORD_LINK, DEFAULT_HERO_IMAGE, DEFAULT_ADMIN_USER, DEFAULT_ADMIN_PASS, ENV } from "../utils/constants";
 import { io, Socket } from "socket.io-client";
@@ -161,6 +161,7 @@ class DatabaseAdapter {
                 heroImage: DEFAULT_HERO_IMAGE,
                 maintenanceMode: false,
                 chatEnabled: true,
+                communityLink: "",
                 allowedDomains: []
             };
         }
@@ -300,8 +301,15 @@ class DatabaseAdapter {
     async getUsers(): Promise<User[]> {
         try {
             const res = await fetch(`${this.apiUrl}/users`);
-            return await res.json();
+            if (!res.ok) {
+                console.error(`[DB] Failed to fetch users: ${res.status} ${res.statusText}`);
+                return [];
+            }
+            const users = await res.json();
+            console.log(`[DB] Fetched ${users.length} users`);
+            return users;
         } catch (e) {
+            console.error("[DB] Error fetching users:", e);
             return [];
         }
     }
@@ -446,6 +454,91 @@ class DatabaseAdapter {
 
     getAdminCreds(): AdminCreds { return { username: DEFAULT_ADMIN_USER, password: DEFAULT_ADMIN_PASS }; }
     setAdminCreds(creds: AdminCreds) { }
+
+    // --- Forum ---
+    async getForumPosts(): Promise<ForumPost[]> {
+        try {
+            const res = await fetch(`${this.apiUrl}/forum`);
+            return await res.json();
+        } catch (e) {
+            return [];
+        }
+    }
+
+    async createForumPost(post: Omit<ForumPost, "_id" | "id" | "status" | "createdAt" | "likes" | "likedBy" | "replies">) {
+        const res = await fetch(`${this.apiUrl}/forum`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(post)
+        });
+
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || "Failed to create post");
+        }
+        return await res.json();
+    }
+
+    async getForumPost(id: string): Promise<ForumPost | null> {
+        try {
+            const res = await fetch(`${this.apiUrl}/forum/${id}`);
+            if (!res.ok) return null;
+            return await res.json();
+        } catch (e) {
+            return null;
+        }
+    }
+
+    async addForumReply(postId: string, reply: { content: string, author: { username: string, userId?: string } }) {
+        const res = await fetch(`${this.apiUrl}/forum/${postId}/reply`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(reply)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || "Failed to add reply");
+        }
+        return await res.json();
+    }
+
+    // Admin Forum
+    async getPendingForumPosts(): Promise<ForumPost[]> {
+        try {
+            const res = await fetch(`${this.apiUrl}/admin/forum/pending`);
+            return await res.json();
+        } catch (e) {
+            return [];
+        }
+    }
+
+    async getAllForumPostsAdmin(): Promise<ForumPost[]> {
+        try {
+            const res = await fetch(`${this.apiUrl}/admin/forum/all`);
+            return await res.json();
+        } catch (e) {
+            return [];
+        }
+    }
+
+    async deleteForumPost(id: string) {
+        await fetch(`${this.apiUrl}/forum/${id}`, {
+            method: 'DELETE'
+        });
+    }
+
+    async updateForumPostStatus(id: string, status: 'approved' | 'rejected') {
+        const res = await fetch(`${this.apiUrl}/admin/forum/${id}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || "Failed to update status");
+        }
+        return await res.json();
+    }
 }
 
 export const db = new DatabaseAdapter();

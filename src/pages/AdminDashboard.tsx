@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Product, Category, User, Review, AppSettings, ChatMessage, UserPermission, Coupon, Order } from "../types";
+import { Product, Category, User, Review, AppSettings, ChatMessage, UserPermission, Coupon, Order, ForumPost } from "../types";
 import { db } from "../services/db";
 import { generateId } from "../utils/helpers";
 import ProductCard from "../components/ProductCard";
+import ProductDetail from "./ProductDetail";
 
 
 interface AdminDashboardProps {
@@ -13,7 +14,7 @@ interface AdminDashboardProps {
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackToStore }) => {
     // Admin is always admin here, no "isStaff" check needed for restricted view
-    const [activeTab, setActiveTab] = useState<"overview" | "products" | "categories" | "users" | "access" | "reviews" | "orders" | "coupons" | "settings" | "server" | "chat">("overview");
+    const [activeTab, setActiveTab] = useState<"overview" | "products" | "categories" | "users" | "access" | "reviews" | "orders" | "coupons" | "settings" | "chat" | "forum">("overview");
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [permissions, setPermissions] = useState<UserPermission[]>([]);
@@ -21,9 +22,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
     const [orders, setOrders] = useState<Order[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [coupons, setCoupons] = useState<Coupon[]>([]);
-    const [serverLogs, setServerLogs] = useState<any[]>([]);
-    const [serverStatus, setServerStatus] = useState<any>(null);
-    const [loadingServer, setLoadingServer] = useState(false);
+
     const [settings, setSettings] = useState<AppSettings>({
         discordLink: "",
         storeName: "",
@@ -37,6 +36,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [collapsed, setCollapsed] = useState(false);
     const [showBannedModal, setShowBannedModal] = useState(false);
+    const [forumPosts, setForumPosts] = useState<ForumPost[]>([]);
+    const [forumView, setForumView] = useState<'pending' | 'all'>('pending');
     const [bannedUsers, setBannedUsers] = useState<User[]>([]);
 
     // Edit/Create State
@@ -46,6 +47,48 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
     const [isAddingCoupon, setIsAddingCoupon] = useState(false);
     const [newCouponCode, setNewCouponCode] = useState("");
     const [newCouponPercent, setNewCouponPercent] = useState<number | "">("");
+
+    // Forum Creation State
+    const [isAddingPost, setIsAddingPost] = useState(false);
+    const [newPostTitle, setNewPostTitle] = useState("");
+    const [newPostContent, setNewPostContent] = useState("");
+    const [newPostTags, setNewPostTags] = useState("");
+    const [newPostImages, setNewPostImages] = useState<string[]>([]);
+
+    const loadData = async () => {
+        try {
+            const [
+                prods, cats, usrs, perms, revs, ords, cpn, sett, msgs, fPosts
+            ] = await Promise.all([
+                db.getProducts(),
+                db.getCategories(),
+                db.getUsers(),
+                db.getAllPermissions(),
+                db.getAllReviews(),
+                db.getOrders(),
+                db.getCoupons(),
+                db.getSettings(),
+                db.getMessages(),
+                db.getPendingForumPosts()
+            ]);
+
+            setProducts(prods);
+            setCategories(cats);
+            setUsers(usrs);
+            setPermissions(perms);
+            setReviews(revs);
+            setOrders(ords);
+            setCoupons(cpn);
+            setSettings({ ...sett, allowedDomains: sett.allowedDomains || [] });
+            setChatMessages(msgs);
+            setForumPosts(fPosts);
+            setBannedUsers(usrs.filter(u => u.isBanned));
+        } catch (error) {
+            console.error("Failed to load admin data", error);
+        }
+    };
+
+    const refresh = () => loadData();
 
     useEffect(() => {
         loadData();
@@ -70,56 +113,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
     }, [activeTab]);
 
     useEffect(() => {
-        if (showBannedModal) {
-            db.getUsers().then(users => {
-                setBannedUsers(users.filter(u => u.isBanned));
-            });
-        }
-    }, [showBannedModal]);
-
-    // Refresh Data
-    const loadData = async () => {
-        setProducts(await db.getProducts());
-        setCategories(await db.getCategories());
-        setPermissions(await db.getAllPermissions());
-        setReviews(await db.getAllReviews());
-        setOrders(await db.getOrders());
-        const loadedUsers = await db.getUsers();
-        setUsers(loadedUsers.filter(u => u)); // Filter out nulls
-        setCoupons(await db.getCoupons());
-        const loadedSettings = await db.getSettings();
-        setSettings(loadedSettings || {
-            discordLink: "",
-            storeName: "",
-            heroImage: "",
-            maintenanceMode: false,
-            chatEnabled: true,
-            allowedDomains: []
-        });
-        setChatMessages(await db.getMessages());
-    };
-
-    const refresh = loadData;
-
-    const checkServer = async () => {
-        setLoadingServer(true);
-        try {
-            const status = await db.checkServerHealth();
-            setServerStatus(status);
-            const logs = await db.getServerLogs();
-            setServerLogs(logs);
-        } catch (e: any) {
-            setServerStatus({ status: 'offline', message: e.message });
-        } finally {
-            setLoadingServer(false);
-        }
-    };
-
-    useEffect(() => {
-        if (activeTab === 'server') {
-            checkServer();
-        }
-    }, [activeTab]);
+        const handleUserUpdate = (updatedUsers: any[]) => {
+            setUsers(updatedUsers);
+            setBannedUsers(updatedUsers.filter(u => u.isBanned));
+        };
+        db.onUserListUpdate(handleUserUpdate);
+        return () => {
+            db.offUserListUpdate(handleUserUpdate);
+        };
+    }, []);
 
     // Product Actions
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -290,6 +292,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
         }
     };
 
+    // Forum Actions
+    const handleForumAction = async (id: string, status: 'approved' | 'rejected') => {
+        if (confirm(`Mark post as ${status}?`)) {
+            await db.updateForumPostStatus(id, status);
+            refresh();
+        }
+    };
+
+    const handleCreateForumPost = async () => {
+        if (!newPostTitle || !newPostContent) return;
+        try {
+            await db.createForumPost({
+                title: newPostTitle,
+                content: newPostContent,
+                tags: newPostTags.split(',').map(t => t.trim()).filter(t => t),
+                author: { username: "Admin", userId: user?.userId || 'admin' },
+                images: newPostImages
+            });
+            setIsAddingPost(false);
+            setNewPostTitle("");
+            setNewPostContent("");
+            setNewPostTags("");
+            setNewPostImages([]);
+            refresh();
+        } catch (e: any) {
+            alert("Failed to post: " + e.message);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gray-950 flex text-gray-100 font-sans relative">
             {/* Background Ambience */}
@@ -318,7 +349,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                 <nav className="p-4 space-y-1.5 overflow-y-auto flex-1 custom-scrollbar">
                     <div className="mb-8">
                         {!collapsed && <p className="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 animate-in fade-in">Dashboard</p>}
-                        {(['overview', 'products', 'categories', 'users', 'access', 'orders', 'reviews', 'coupons', 'chat', 'server'] as const).map(tab => (
+                        {(['overview', 'products', 'categories', 'users', 'access', 'orders', 'reviews', 'coupons', 'chat', 'forum'] as const).map(tab => (
                             <button
                                 key={tab}
                                 onClick={() => { setActiveTab(tab); setSidebarOpen(false); }}
@@ -337,7 +368,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                                         tab === 'orders' ? 'fa-money-bill-transfer' :
                                                             tab === 'reviews' ? 'fa-star' :
                                                                 tab === 'coupons' ? 'fa-ticket' :
-                                                                    tab === 'server' ? 'fa-server' : 'fa-comments'
+                                                                    tab === 'forum' ? 'fa-comments' : 'fa-message'
                                         }`}></i>
                                 </span>
                                 {!collapsed && <span className="capitalize font-medium animate-in fade-in slide-in-from-left-2 duration-300">{tab}</span>}
@@ -397,7 +428,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                 { title: "Total Revenue", value: `₹${permissions.reduce((acc, perm) => acc + (products.find(p => p.id === perm.productId)?.priceInr || 0), 0).toLocaleString()}`, icon: "fa-wallet", color: "from-violet-500 to-indigo-500", sub: "Lifetime Earnings" },
                                 { title: "Total Users", value: users.length, icon: "fa-users", color: "from-fuchsia-500 to-pink-500", sub: `${users.filter(u => u.role !== 'user').length} Staff Members` },
                                 { title: "Active Products", value: products.length, icon: "fa-box-open", color: "from-blue-500 to-cyan-500", sub: `${categories.length} Categories` },
-                                { title: "Total Reviews", value: reviews.length, icon: "fa-star", color: "from-emerald-500 to-teal-500", sub: `${reviews.filter(r => r.status === 'pending').length} Pending` }
+                                { title: "Total Reviews", value: reviews.length, icon: "fa-star", color: "from-emerald-500 to-teal-500", sub: `${reviews.filter(r => r.status === 'pending').length} Pending` },
+                                { title: "Forum Requests", value: forumPosts.length, icon: "fa-comments", color: "from-orange-500 to-red-500", sub: "Pending Approval" }
                             ].map((stat, idx) => (
                                 <div key={idx} className="relative overflow-hidden bg-gray-900/40 backdrop-blur-xl p-6 rounded-3xl border border-gray-800 group hover:border-gray-700 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
                                     <div className={`absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity bg-gradient-to-br ${stat.color} bg-clip-text text-transparent`}>
@@ -521,45 +553,57 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                             </button>
                         </div>
 
-                        {/* Product Edit Modal would go here (simplified for brevity, assume reusable component or same oversized modal) */}
                         {editingProduct && (
-                            <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                                <div className="bg-gray-900 w-full max-w-6xl h-[90vh] rounded-2xl border border-gray-700 flex overflow-hidden shadow-2xl">
+                            <div className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
+                                <div className="bg-[#050505] w-full h-full rounded-none md:rounded-2xl border border-gray-800 flex flex-col md:flex-row overflow-hidden shadow-2xl">
                                     {/* Form */}
-                                    <div className="w-1/2 p-8 overflow-y-auto border-r border-gray-800 custom-scrollbar">
-                                        <h2 className="text-2xl font-bold mb-6 text-white">Edit Product</h2>
-                                        <div className="space-y-4">
+                                    <div className="w-full md:w-[35%] p-6 md:p-8 overflow-y-auto border-b md:border-b-0 md:border-r border-gray-800 custom-scrollbar bg-gray-900/50">
+                                        <h2 className="text-2xl font-bold mb-6 text-white flex items-center gap-3">
+                                            <i className="fa-solid fa-pen-to-square text-violet-500"></i>
+                                            Edit Product
+                                        </h2>
+                                        <div className="space-y-6">
                                             <div className="space-y-1">
-                                                <label className="text-xs text-gray-400 font-bold uppercase">Product Title</label>
-                                                <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none" value={editingProduct.title} onChange={e => setEditingProduct({ ...editingProduct, title: e.target.value })} />
+                                                <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Product Title</label>
+                                                <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none transition" value={editingProduct.title} onChange={e => setEditingProduct({ ...editingProduct, title: e.target.value })} />
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-xs text-gray-400 font-bold uppercase">Description</label>
-                                                <textarea className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none h-32" value={editingProduct.description} onChange={e => setEditingProduct({ ...editingProduct, description: e.target.value })} />
+                                                <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Description</label>
+                                                <textarea className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none h-32 transition resize-none" value={editingProduct.description} onChange={e => setEditingProduct({ ...editingProduct, description: e.target.value })} />
                                             </div>
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div>
-                                                    <label className="text-xs text-gray-400 font-bold uppercase">Price (INR)</label>
-                                                    <input type="number" className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none" value={editingProduct.priceInr} onChange={e => setEditingProduct({ ...editingProduct, priceInr: parseInt(e.target.value) })} />
+                                                    <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Price (INR)</label>
+                                                    <input type="number" className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none transition" value={editingProduct.priceInr} onChange={e => setEditingProduct({ ...editingProduct, priceInr: parseInt(e.target.value) })} />
                                                 </div>
                                                 <div>
-                                                    <label className="text-xs text-gray-400 font-bold uppercase">Price (Owo)</label>
-                                                    <input type="number" className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none" value={editingProduct.priceOwo} onChange={e => setEditingProduct({ ...editingProduct, priceOwo: parseInt(e.target.value) })} />
+                                                    <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Price (Owo)</label>
+                                                    <input type="number" className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none transition" value={editingProduct.priceOwo} onChange={e => setEditingProduct({ ...editingProduct, priceOwo: parseInt(e.target.value) })} />
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-4">
-                                                <select className="bg-gray-800 border border-gray-700 rounded p-3 text-white" value={editingProduct.category} onChange={e => setEditingProduct({ ...editingProduct, category: e.target.value })}>
-                                                    <option disabled>Select Category</option>
-                                                    {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                                                </select>
-                                                <select className="bg-gray-800 border border-gray-700 rounded p-3 text-white" value={editingProduct.type} onChange={e => setEditingProduct({ ...editingProduct, type: e.target.value as any })}>
-                                                    <option value="workflow">Workflow</option>
-                                                    <option value="pack">Pack</option>
-                                                    <option value="audio">Audio</option>
-                                                    <option value="other">Other</option>
-                                                </select>
+                                                <div className="space-y-1">
+                                                    <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Category</label>
+                                                    <select className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none transition" value={editingProduct.category} onChange={e => setEditingProduct({ ...editingProduct, category: e.target.value })}>
+                                                        <option disabled value="">Select Category</option>
+                                                        {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                                    </select>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Type</label>
+                                                    <select className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none transition" value={editingProduct.type} onChange={e => setEditingProduct({ ...editingProduct, type: e.target.value as any })}>
+                                                        <option value="workflow">Workflow</option>
+                                                        <option value="pack">Pack</option>
+                                                        <option value="audio">Audio</option>
+                                                        <option value="other">Other</option>
+                                                    </select>
+                                                </div>
                                             </div>
-                                            <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none" placeholder="Image URL" value={editingProduct.imageUrl} onChange={e => setEditingProduct({ ...editingProduct, imageUrl: e.target.value })} />
+
+                                            <div className="space-y-1">
+                                                <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Main Image URL</label>
+                                                <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none transition" placeholder="Image URL" value={editingProduct.imageUrl} onChange={e => setEditingProduct({ ...editingProduct, imageUrl: e.target.value })} />
+                                            </div>
 
                                             <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
                                                 <label className="text-xs text-gray-400 font-bold uppercase mb-2 block">Upload File</label>
@@ -569,7 +613,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                             </div>
 
                                             <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
-                                                <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase">Additional Images</h3>
+                                                <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase flex items-center gap-2"><i className="fa-solid fa-images"></i> Additional Images</h3>
                                                 <div className="space-y-3">
                                                     {(editingProduct.images || []).map((img, idx) => (
                                                         <div key={idx} className="flex gap-2">
@@ -588,7 +632,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                                                     const newImages = (editingProduct.images || []).filter((_, i) => i !== idx);
                                                                     setEditingProduct({ ...editingProduct, images: newImages });
                                                                 }}
-                                                                className="p-2 text-red-500 hover:bg-red-500/10 rounded"
+                                                                className="p-2 text-red-500 hover:bg-red-500/10 rounded transition"
                                                             >
                                                                 <i className="fa-solid fa-trash"></i>
                                                             </button>
@@ -596,39 +640,108 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                                     ))}
                                                     <button
                                                         onClick={() => setEditingProduct({ ...editingProduct, images: [...(editingProduct.images || []), ""] })}
-                                                        className="text-sm text-blue-400 font-bold hover:text-white flex items-center gap-2"
+                                                        className="text-sm text-blue-400 font-bold hover:text-white flex items-center gap-2 transition"
                                                     >
                                                         <i className="fa-solid fa-plus"></i> Add Image
                                                     </button>
                                                 </div>
                                             </div>
 
-                                            <div className="bg-gray-800/50 p-4 rounded border border-gray-700">
-                                                <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase">Metadata</h3>
-                                                {editingProduct.type === 'workflow' && (
-                                                    <div className="space-y-2">
-                                                        <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Node Count" type="number" value={editingProduct.meta?.nodeCount || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, nodeCount: parseInt(e.target.value) } })} />
-                                                        <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Trigger (e.g. Cron)" value={editingProduct.meta?.trigger || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, trigger: e.target.value } })} />
-                                                    </div>
-                                                )}
-                                                {editingProduct.type === 'pack' && (
-                                                    <div className="space-y-2">
-                                                        <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="File Count" type="number" value={editingProduct.meta?.fileCount || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, fileCount: parseInt(e.target.value) } })} />
-                                                        <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Resolution (e.g. 4K)" value={editingProduct.meta?.resolution || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, resolution: e.target.value } })} />
-                                                    </div>
-                                                )}
+                                            {/* Key Features Section */}
+                                            <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
+                                                <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase flex items-center gap-2"><i className="fa-solid fa-list-check"></i> Key Features</h3>
+                                                <div className="space-y-3">
+                                                    {(editingProduct.features || []).map((feature, idx) => (
+                                                        <div key={idx} className="flex gap-2">
+                                                            <input
+                                                                className="flex-1 bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white"
+                                                                value={feature}
+                                                                onChange={(e) => {
+                                                                    const newFeatures = [...(editingProduct.features || [])];
+                                                                    newFeatures[idx] = e.target.value;
+                                                                    setEditingProduct({ ...editingProduct, features: newFeatures });
+                                                                }}
+                                                                placeholder="Feature description"
+                                                            />
+                                                            <button
+                                                                onClick={() => {
+                                                                    const newFeatures = (editingProduct.features || []).filter((_, i) => i !== idx);
+                                                                    setEditingProduct({ ...editingProduct, features: newFeatures });
+                                                                }}
+                                                                className="p-2 text-red-500 hover:bg-red-500/10 rounded transition"
+                                                            >
+                                                                <i className="fa-solid fa-trash"></i>
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    <button
+                                                        onClick={() => setEditingProduct({ ...editingProduct, features: [...(editingProduct.features || []), ""] })}
+                                                        className="text-sm text-emerald-400 font-bold hover:text-emerald-300 flex items-center gap-2 transition"
+                                                    >
+                                                        <i className="fa-solid fa-plus"></i> Add Feature
+                                                    </button>
+                                                </div>
                                             </div>
 
-                                            <div className="flex gap-4 pt-6">
-                                                <button onClick={handleSaveProduct} className="flex-1 bg-blue-600 hover:bg-blue-500 py-3 rounded-xl font-bold text-white shadow-lg shadow-blue-600/20">Save Product</button>
-                                                <button onClick={() => setEditingProduct(null)} className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold text-white border border-gray-700">Cancel</button>
+                                            <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
+                                                <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase flex items-center gap-2"><i className="fa-solid fa-microchip"></i> Metadata (All Fields)</h3>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Node Count (Workflow)" type="number" value={editingProduct.meta?.nodeCount || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, nodeCount: parseInt(e.target.value) } })} />
+                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Trigger (Workflow)" value={editingProduct.meta?.trigger || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, trigger: e.target.value } })} />
+
+                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="File Count" type="number" value={editingProduct.meta?.fileCount || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, fileCount: parseInt(e.target.value) } })} />
+                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Resolution" value={editingProduct.meta?.resolution || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, resolution: e.target.value } })} />
+
+                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Duration" value={editingProduct.meta?.duration || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, duration: e.target.value } })} />
+                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Format" value={editingProduct.meta?.format || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, format: e.target.value } })} />
+
+                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Sample Rate" value={editingProduct.meta?.sampleRate || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, sampleRate: e.target.value } })} />
+                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Bit Depth" value={editingProduct.meta?.bitDepth || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, bitDepth: e.target.value } })} />
+
+                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Bitrate" value={editingProduct.meta?.bitrate || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, bitrate: e.target.value } })} />
+                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Integrations" value={editingProduct.meta?.integrations || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, integrations: e.target.value } })} />
+
+                                                    <div className="col-span-2">
+                                                        <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">JSON Preview (Optional)</label>
+                                                        <textarea className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white font-mono h-20" placeholder="{ ... }" value={editingProduct.meta?.jsonPreview || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, jsonPreview: e.target.value } })}></textarea>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex gap-4 pt-6 sticky bottom-0 bg-gray-900/90 backdrop-blur-md p-4 -mx-4 -mb-4 border-t border-gray-800">
+                                                <button onClick={handleSaveProduct} className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 py-3 rounded-xl font-bold text-white shadow-lg shadow-blue-600/20 transform transition active:scale-95">Save Product</button>
+                                                <button onClick={() => setEditingProduct(null)} className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold text-white border border-gray-700 transition">Cancel</button>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="w-1/2 bg-gray-950 p-8 flex items-center justify-center relative">
-                                        <div className="absolute inset-0 bg-[#000000] opacity-50"></div>
-                                        <div className="relative z-10 w-[350px]">
-                                            <ProductCard product={editingProduct as Product} onClick={() => { }} />
+                                    {/* Preview */}
+                                    <div className="w-full md:w-[65%] relative bg-[#0a0a0a] flex flex-col h-full">
+                                        <div className="absolute top-4 right-4 z-50 bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-full border border-white/10 text-xs font-bold uppercase tracking-wider animate-pulse pointer-events-none">
+                                            Live Preview
+                                        </div>
+                                        <div className="flex-1 overflow-hidden relative">
+                                            <ProductDetail
+                                                // Create a complete Product object from partial editing data
+                                                product={{
+                                                    _id: editingProduct._id || "preview_id",
+                                                    id: editingProduct.id || "preview_id",
+                                                    title: editingProduct.title || "Untitled Product",
+                                                    description: editingProduct.description || "No description provided.",
+                                                    features: editingProduct.features || [],
+                                                    priceInr: Number(editingProduct.priceInr) || 0,
+                                                    priceOwo: Number(editingProduct.priceOwo) || 0,
+                                                    category: editingProduct.category || "Uncategorized",
+                                                    imageUrl: editingProduct.imageUrl || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800",
+                                                    images: editingProduct.images || [],
+                                                    downloadUrl: editingProduct.downloadUrl || "",
+                                                    type: editingProduct.type || "other",
+                                                    meta: editingProduct.meta
+                                                }}
+                                                user={user}
+                                                onBack={() => { }}
+                                                onPurchase={() => { }}
+                                                previewMode={true}
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -781,437 +894,528 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                     </div>
                 )}
 
-                {activeTab === 'reviews' && (
+                {activeTab === 'forum' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4">
                         <div className="flex justify-between items-center mb-8">
                             <div>
-                                <h1 className="text-3xl font-bold text-white mb-2">Review Moderation</h1>
-                                <p className="text-gray-400 text-sm">Approve or reject customer reviews.</p>
+                                <h1 className="text-3xl font-bold text-white mb-2">Forum Management</h1>
+                                <p className="text-gray-400 text-sm">Approve pending posts or manage existing discussions.</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setIsAddingPost(true)}
+                                    className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-fuchsia-600/20 flex items-center gap-2 text-sm"
+                                >
+                                    <i className="fa-solid fa-plus"></i> Create Post
+                                </button>
+                                <div className="bg-gray-900 border border-gray-800 p-1 rounded-xl flex gap-1">
+                                    <button
+                                        onClick={() => { setForumView('pending'); db.getPendingForumPosts().then(setForumPosts); }}
+                                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${forumView === 'pending' ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:text-white'}`}
+                                    >
+                                        Pending
+                                    </button>
+                                    <button
+                                        onClick={() => { setForumView('all'); db.getAllForumPostsAdmin().then(setForumPosts); }}
+                                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${forumView === 'all' ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:text-white'}`}
+                                    >
+                                        All Posts
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="space-y-4">
-                            {reviews.length === 0 ? (
-                                <div className="py-12 flex flex-col items-center justify-center text-gray-500 border border-dashed border-gray-800 rounded-3xl bg-gray-900/20">
-                                    <i className="fa-regular fa-star text-4xl mb-4 opacity-50"></i>
-                                    <p>No reviews submitted yet.</p>
-                                </div>
-                            ) : (
-                                reviews.slice().reverse().map(review => {
-                                    const product = products.find(p => p.id === review.productId);
-                                    return (
-                                        <div key={review.id} className="bg-gray-900/50 border border-gray-800 p-6 rounded-2xl flex flex-col md:flex-row gap-6 relative overflow-hidden group">
-                                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${review.status === 'approved' ? 'bg-emerald-500' :
-                                                review.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'
-                                                }`}></div>
-
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-3 mb-2">
-                                                    <div className="flex text-yellow-500 text-sm">
-                                                        {[...Array(5)].map((_, i) => (
-                                                            <i key={i} className={`fa-solid fa-star ${i < review.rating ? '' : 'text-gray-700'}`}></i>
-                                                        ))}
-                                                    </div>
-                                                    <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${review.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500' :
-                                                        review.status === 'rejected' ? 'bg-red-500/10 text-red-500' : 'bg-yellow-500/10 text-yellow-500'
-                                                        }`}>{review.status}</span>
-                                                    <span className="text-xs text-gray-600 ml-auto">{new Date(review.timestamp).toLocaleDateString()}</span>
-                                                </div>
-                                                <p className="text-white font-medium mb-1">"{review.comment}"</p>
-                                                <p className="text-sm text-gray-500">by <span className="text-gray-300 font-bold">{review.username}</span> on <span className="text-violet-400">{product?.title || 'Unknown Product'}</span></p>
-                                            </div>
-
-                                            <div className="flex items-center gap-3">
-                                                {review.status === 'pending' && (
-                                                    <>
-                                                        <button onClick={() => handleReviewAction(review.id, 'approved')} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-sm shadow-lg shadow-emerald-600/20 transition-transform active:scale-95">Approve</button>
-                                                        <button onClick={() => handleReviewAction(review.id, 'rejected')} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-bold text-sm border border-gray-700">Reject</button>
-                                                    </>
-                                                )}
-                                                {review.status !== 'pending' && (
-                                                    <button onClick={() => handleReviewAction(review.id, review.status === 'approved' ? 'rejected' : 'approved')} className="text-xs text-gray-500 underline hover:text-white">
-                                                        Change to {review.status === 'approved' ? 'Rejected' : 'Approved'}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === 'orders' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4">
-                        <div className="flex justify-between items-center mb-8">
-                            <div>
-                                <h1 className="text-3xl font-bold text-white mb-2">Order Management</h1>
-                                <p className="text-gray-400 text-sm">Review pending payments and grant access.</p>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            {orders.length === 0 ? (
-                                <div className="py-12 flex flex-col items-center justify-center text-gray-500 border border-dashed border-gray-800 rounded-3xl bg-gray-900/20">
-                                    <i className="fa-solid fa-money-check-dollar text-4xl mb-4 opacity-50"></i>
-                                    <p>No orders found.</p>
-                                </div>
-                            ) : (
-                                orders.slice().reverse().map(order => {
-                                    return (
-                                        <div key={order.id} className="bg-gray-900/50 border border-gray-800 p-6 rounded-2xl flex flex-col md:flex-row gap-6 relative overflow-hidden group hover:bg-gray-900 transition">
-                                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${order.status === 'approved' ? 'bg-emerald-500' :
-                                                order.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'
-                                                }`}></div>
-
-                                            <div className="flex-1">
-                                                <div className="flex items-center gap-3 mb-2">
-                                                    <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${order.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500' :
-                                                        order.status === 'rejected' ? 'bg-red-500/10 text-red-500' : 'bg-yellow-500/10 text-yellow-500'
-                                                        }`}>{order.status}</span>
-                                                    <span className="text-xs text-gray-600 ml-auto">{new Date(order.timestamp).toLocaleString()}</span>
-                                                </div>
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <h3 className="text-white font-bold text-lg mb-1">{order.productTitle}</h3>
-                                                        <p className="text-sm text-gray-400">User: <span className="text-white font-bold">{order.username}</span> ({order.userId})</p>
-                                                        <p className="text-xs text-gray-500 font-mono mt-2 bg-gray-900/50 p-2 rounded inline-block">Memo: {order.memo}</p>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-2xl font-bold text-emerald-400 font-mono">{order.amount.toLocaleString()} {order.currency}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex flex-col justify-center gap-2 border-l border-gray-800 pl-6">
-                                                {order.status === 'pending' && (
-                                                    <>
-                                                        <button onClick={() => handleApproveOrder(order)} className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/20 transition-transform active:scale-95 flex items-center gap-2">
-                                                            <i className="fa-solid fa-check"></i> Approve
-                                                        </button>
-                                                        <button onClick={() => handleRejectOrder(order.id)} className="px-6 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold text-sm border border-gray-700 flex items-center gap-2">
-                                                            <i className="fa-solid fa-xmark"></i> Reject
-                                                        </button>
-                                                    </>
-                                                )}
-                                                {order.status !== 'pending' && (
-                                                    <div className="text-center w-full px-6">
-                                                        <p className="text-xs text-gray-500 font-bold uppercase">Processed</p>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === 'users' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4">
-                        <div className="flex justify-between items-center mb-8">
-                            <h1 className="text-3xl font-bold text-white">User Base</h1>
-                            <button onClick={() => setEditingUser({ username: "", email: "", password: "" })} className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-fuchsia-600/20"><i className="fa-solid fa-plus mr-2"></i> Add User</button>
-                        </div>
-                        {/* New User Modal here if needed */}
-                        {editingUser && (
-                            <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-                                <div className="bg-gray-900 w-full max-w-md rounded-2xl border border-gray-700 p-8 shadow-2xl">
-                                    <h2 className="text-xl font-bold mb-6 text-white">Add New User</h2>
+                        {isAddingPost && (
+                            <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+                                <div className="bg-gray-900 w-full max-w-lg rounded-2xl border border-gray-700 p-6 shadow-2xl relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-fuchsia-500 to-violet-500"></div>
+                                    <h2 className="text-xl font-bold mb-4 text-white">Create Forum Post</h2>
                                     <div className="space-y-4">
-                                        <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" placeholder="Username" value={editingUser.username} onChange={e => setEditingUser({ ...editingUser, username: e.target.value })} />
-                                        <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" placeholder="Email" type="email" value={editingUser.email} onChange={e => setEditingUser({ ...editingUser, email: e.target.value })} />
-                                        <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" placeholder="Password" type="password" value={editingUser.password} onChange={e => setEditingUser({ ...editingUser, password: e.target.value })} />
-                                        <div className="flex gap-4 pt-4">
-                                            <button onClick={handleSaveUser} className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 py-3 rounded-xl font-bold text-white">Create User</button>
-                                            <button onClick={() => setEditingUser(null)} className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold text-white">Cancel</button>
+                                        <div>
+                                            <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Title</label>
+                                            <input
+                                                className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none"
+                                                placeholder="Post Title"
+                                                autoFocus
+                                                value={newPostTitle}
+                                                onChange={e => setNewPostTitle(e.target.value)}
+                                            />
                                         </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Content</label>
+                                            <textarea
+                                                className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none h-32 resize-none"
+                                                placeholder="What's on your mind?"
+                                                value={newPostContent}
+                                                onChange={e => setNewPostContent(e.target.value)}
+                                            />
+                                        </div>
+                                        <input
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none"
+                                            placeholder="e.g. news, update, general"
+                                            value={newPostTags}
+                                            onChange={e => setNewPostTags(e.target.value)}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Images (Optional)</label>
+                                        <div className="space-y-2">
+                                            {newPostImages.map((img, idx) => (
+                                                <div key={idx} className="flex gap-2">
+                                                    <input
+                                                        className="flex-1 bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none text-sm"
+                                                        placeholder="Image URL"
+                                                        value={img}
+                                                        onChange={e => {
+                                                            const newImgs = [...newPostImages];
+                                                            newImgs[idx] = e.target.value;
+                                                            setNewPostImages(newImgs);
+                                                        }}
+                                                    />
+                                                    <button onClick={() => setNewPostImages(prev => prev.filter((_, i) => i !== idx))} className="text-red-500 hover:bg-red-500/10 p-2 rounded">
+                                                        <i className="fa-solid fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            <div className="flex gap-2">
+                                                <button onClick={() => setNewPostImages(prev => [...prev, ""])} className="text-sm text-fuchsia-400 font-bold hover:underline">+ Add Image URL</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-3 pt-4">
+                                        <button onClick={handleCreateForumPost} disabled={!newPostTitle || !newPostContent} className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 py-3 rounded-xl font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed">Post</button>
+                                        <button onClick={() => setIsAddingPost(false)} className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold text-white border border-gray-700">Cancel</button>
                                     </div>
                                 </div>
                             </div>
                         )}
-                        <div className="space-y-2">
-                            {users.filter(u => u).map(u => (
-                                <div key={u._id} className="bg-gray-900/50 border border-gray-800 p-4 rounded-xl flex justify-between items-center hover:bg-gray-900 transition-colors">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${u.role === 'staff' ? 'from-fuchsia-500 to-pink-500' : 'from-violet-500 to-indigo-500'} flex items-center justify-center text-white font-bold shadow-lg`}>
-                                            {(u.username || "?").substring(0, 1).toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <h3 className="font-bold text-white">{u.username}</h3>
-                                                {u.role === 'admin' && <span className="bg-violet-500 text-white text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Admin</span>}
-                                                {u.role === 'staff' && <span className="bg-fuchsia-500 text-white text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Staff</span>}
-                                            </div>
-                                            <p className="text-sm text-gray-500">{u.email}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        {/* Simplified Actions */}
-                                        {u.role !== 'admin' && (
-                                            u.role === 'user' ?
-                                                <button onClick={async () => { if (confirm("Promote?")) { await db.setUserRole(u.userId, 'staff'); refresh(); } }} className="text-xs text-fuchsia-400 font-bold hover:underline">Promote</button> :
-                                                <button onClick={async () => { if (confirm("Demote?")) { await db.setUserRole(u.userId, 'user'); refresh(); } }} className="text-xs text-gray-400 font-bold hover:underline">Demote</button>
-                                        )}
-                                        <div className="w-px h-4 bg-gray-700 mx-2"></div>
-                                        <button onClick={() => handleBanUser(u.userId)} className="text-gray-500 hover:text-red-500"><i className="fa-solid fa-ban"></i></button>
-                                    </div>
+
+
+                        <div className="space-y-4">
+                            {forumPosts.length === 0 ? (
+                                <div className="py-12 flex flex-col items-center justify-center text-gray-500 border border-dashed border-gray-800 rounded-3xl bg-gray-900/20">
+                                    <i className="fa-solid fa-comments text-4xl mb-4 opacity-50"></i>
+                                    <p>No {forumView === 'pending' ? 'pending' : ''} forum posts found.</p>
                                 </div>
-                            ))}
+                            ) : (
+                                forumPosts.map(post => (
+                                    <div key={post.id} className="bg-gray-900/50 border border-gray-800 p-6 rounded-2xl flex flex-col md:flex-row gap-6 hover:bg-gray-900 transition relative overflow-hidden group">
+                                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${post.status === 'approved' ? 'bg-emerald-500' : post.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${post.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500' :
+                                                    post.status === 'rejected' ? 'bg-red-500/10 text-red-500' :
+                                                        'bg-yellow-500/10 text-yellow-500'
+                                                    }`}>{post.status}</span>
+                                                <span className="text-xs text-gray-600 ml-auto">{new Date(post.createdAt).toLocaleString()}</span>
+                                            </div>
+                                            <h3 className="text-xl font-bold text-white mb-2">{post.title}</h3>
+                                            {post.images && post.images.length > 0 && (
+                                                <div className="mb-4 flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                                                    {post.images.map((img, i) => (
+                                                        <img key={i} src={img} className="h-48 rounded-lg object-cover border border-gray-800" alt="Post attachment" />
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <p className="text-gray-400 mb-4 line-clamp-3">{post.content}</p>
+                                            <div className="flex items-center gap-2">
+                                                {post.tags.map(tag => (
+                                                    <span key={tag} className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded-lg border border-gray-700">#{tag}</span>
+                                                ))}
+                                                <span className="text-xs text-gray-500 ml-2">by <span className="text-white font-bold">{post.author.username}</span>
+                                                    {!post.author.userId && <span className="ml-1 text-[10px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded uppercase">Guest</span>}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="flex flex-col justify-center gap-2 border-l border-gray-800 pl-6 min-w-[140px]">
+                                            {forumView === 'pending' ? (
+                                                <>
+                                                    <button onClick={() => handleForumAction(post.id, 'approved')} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-emerald-600/20 transition-transform active:scale-95 flex items-center justify-center gap-2">
+                                                        <i className="fa-solid fa-check"></i> Approve
+                                                    </button>
+                                                    <button onClick={() => handleForumAction(post.id, 'rejected')} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold text-xs border border-gray-700 flex items-center justify-center gap-2">
+                                                        <i className="fa-solid fa-xmark"></i> Reject
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <button onClick={async () => {
+                                                    if (confirm("Permanently delete this post?")) {
+                                                        await db.deleteForumPost(post.id);
+                                                        // Refresh current view
+                                                        const freshPosts = await db.getAllForumPostsAdmin();
+                                                        setForumPosts(freshPosts);
+                                                    }
+                                                }} className="px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2">
+                                                    <i className="fa-solid fa-trash"></i> Delete
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
-                )}
+                )
+                }
 
-                {activeTab === 'chat' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 h-[calc(100vh-8rem)] flex flex-col">
-                        <div className="flex justify-between items-center mb-6 shrink-0">
-                            <div>
-                                <h1 className="text-3xl font-bold text-white mb-2">Live Chat Moderation</h1>
-                                <p className="text-gray-400 text-sm">Monitor and moderate global chat in real-time.</p>
+                {
+                    activeTab === 'reviews' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4">
+                            <div className="flex justify-between items-center mb-8">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-white mb-2">Review Moderation</h1>
+                                    <p className="text-gray-400 text-sm">Approve or reject customer reviews.</p>
+                                </div>
                             </div>
-                            <div className="flex gap-3">
-                                <button onClick={handleToggleChat} className={`px-4 py-2 rounded-xl font-bold text-sm border transition-all shadow-lg flex items-center gap-2 ${settings.chatEnabled ? 'bg-red-500/10 text-red-500 border-red-500/50 hover:bg-red-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/50 hover:bg-emerald-500/20'}`}>
-                                    <i className={`fa-solid ${settings.chatEnabled ? 'fa-video-slash' : 'fa-video'}`}></i>
-                                    {settings.chatEnabled ? 'Disable Chat' : 'Enable Chat'}
-                                </button>
-                                <button onClick={() => setShowBannedModal(true)} className="px-4 py-2 bg-gray-800 text-gray-300 border border-gray-700 rounded-xl font-bold text-sm hover:bg-gray-700 hover:text-white transition-all shadow-lg">
-                                    <i className="fa-solid fa-user-slash mr-2"></i> Banned Users
-                                </button>
-                                <button onClick={() => { if (confirm("Clear all chat history?")) { db.clearChat().then(() => setChatMessages([])); } }} className="px-4 py-2 bg-orange-500/10 text-orange-500 border border-orange-500/50 rounded-xl font-bold text-sm hover:bg-orange-500/20 hover:text-orange-400 transition-all shadow-lg">
-                                    <i className="fa-solid fa-trash mr-2"></i> Clear History
-                                </button>
-                            </div>
-                        </div>
 
-                        <div className="flex-1 bg-gray-900/50 backdrop-blur-md border border-gray-800 rounded-3xl overflow-hidden flex flex-col shadow-2xl relative">
-                            {/* Messages Area */}
-                            <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-gray-900/30">
-                                {chatMessages.length === 0 ? (
-                                    <div className="h-full flex flex-col items-center justify-center text-gray-600">
-                                        <i className="fa-solid fa-comments text-5xl mb-4 opacity-50"></i>
-                                        <p>No messages in history.</p>
+                            <div className="space-y-4">
+                                {reviews.length === 0 ? (
+                                    <div className="py-12 flex flex-col items-center justify-center text-gray-500 border border-dashed border-gray-800 rounded-3xl bg-gray-900/20">
+                                        <i className="fa-regular fa-star text-4xl mb-4 opacity-50"></i>
+                                        <p>No reviews submitted yet.</p>
                                     </div>
                                 ) : (
-                                    chatMessages.slice().reverse().map(msg => {
-                                        const isAdmin = msg.role === 'admin';
+                                    reviews.slice().reverse().map(review => {
+                                        const product = products.find(p => p.id === review.productId);
                                         return (
-                                            <div key={msg.id} className="group flex items-start gap-4 hover:bg-white/5 p-3 rounded-2xl transition-all border border-transparent hover:border-gray-800">
-                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shadow-lg ${isAdmin ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white' : 'bg-gray-800 text-gray-400'}`}>
-                                                    {msg.username[0].toUpperCase()}
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex justify-between items-start">
-                                                        <div>
-                                                            <div className="flex items-center gap-2">
-                                                                <span className={`font-bold text-sm ${isAdmin ? 'text-violet-400' : 'text-gray-200'}`}>{msg.username}</span>
-                                                                {isAdmin && <span className="bg-violet-500/20 text-violet-300 text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Admin</span>}
-                                                                {msg.role === 'staff' && <span className="bg-fuchsia-500/20 text-fuchsia-300 text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Staff</span>}
-                                                            </div>
-                                                            <p className="text-gray-300 mt-1 text-sm leading-relaxed break-words">{msg.content}</p>
-                                                            {msg.imageUrl && (
-                                                                <div className="mt-2 rounded-lg overflow-hidden border border-gray-700 w-fit">
-                                                                    <img src={msg.imageUrl} alt="attachment" className="max-h-48 object-cover" />
-                                                                </div>
-                                                            )}
+                                            <div key={review.id} className="bg-gray-900/50 border border-gray-800 p-6 rounded-2xl flex flex-col md:flex-row gap-6 relative overflow-hidden group">
+                                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${review.status === 'approved' ? 'bg-emerald-500' :
+                                                    review.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'
+                                                    }`}></div>
+
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <div className="flex text-yellow-500 text-sm">
+                                                            {[...Array(5)].map((_, i) => (
+                                                                <i key={i} className={`fa-solid fa-star ${i < review.rating ? '' : 'text-gray-700'}`}></i>
+                                                            ))}
                                                         </div>
-                                                        <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <span className="text-xs text-gray-600 whitespace-nowrap">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                            <button onClick={() => { if (confirm("Delete this message?")) { db.deleteMessage(msg.id); setChatMessages(prev => prev.filter(m => m.id !== msg.id)); } }} className="w-8 h-8 rounded-lg bg-gray-800 text-gray-500 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all" title="Delete Message">
-                                                                <i className="fa-solid fa-trash text-xs"></i>
-                                                            </button>
-                                                            {msg.role !== 'admin' && (
-                                                                <button onClick={() => handleBanUser(msg.userId)} className="w-8 h-8 rounded-lg bg-gray-800 text-gray-500 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all" title="Ban User">
-                                                                    <i className="fa-solid fa-gavel text-xs"></i>
-                                                                </button>
-                                                            )}
-                                                        </div>
+                                                        <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${review.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500' :
+                                                            review.status === 'rejected' ? 'bg-red-500/10 text-red-500' : 'bg-yellow-500/10 text-yellow-500'
+                                                            }`}>{review.status}</span>
+                                                        <span className="text-xs text-gray-600 ml-auto">{new Date(review.timestamp).toLocaleDateString()}</span>
                                                     </div>
+                                                    <p className="text-white font-medium mb-1">"{review.comment}"</p>
+                                                    <p className="text-sm text-gray-500">by <span className="text-gray-300 font-bold">{review.username}</span> on <span className="text-violet-400">{product?.title || 'Unknown Product'}</span></p>
+                                                </div>
+
+                                                <div className="flex items-center gap-3">
+                                                    {review.status === 'pending' && (
+                                                        <>
+                                                            <button onClick={() => handleReviewAction(review.id, 'approved')} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-sm shadow-lg shadow-emerald-600/20 transition-transform active:scale-95">Approve</button>
+                                                            <button onClick={() => handleReviewAction(review.id, 'rejected')} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-bold text-sm border border-gray-700">Reject</button>
+                                                        </>
+                                                    )}
+                                                    {review.status !== 'pending' && (
+                                                        <button onClick={() => handleReviewAction(review.id, review.status === 'approved' ? 'rejected' : 'approved')} className="text-xs text-gray-500 underline hover:text-white">
+                                                            Change to {review.status === 'approved' ? 'Rejected' : 'Approved'}
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         );
                                     })
                                 )}
                             </div>
-
-                            {/* Input Area */}
-                            <form onSubmit={handleAdminSendMessage} className="p-4 bg-gray-900 border-t border-gray-800 flex gap-3">
-                                <div className="flex-1 bg-gray-950 border border-gray-800 rounded-xl flex items-center p-1.5 focus-within:border-violet-500 transition-colors">
-                                    <div className="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center mr-2">
-                                        <i className="fa-solid fa-shield-cat text-violet-500"></i>
-                                    </div>
-                                    <input
-                                        value={adminMessage}
-                                        onChange={e => setAdminMessage(e.target.value)}
-                                        placeholder="Broadcast message as Administrator..."
-                                        className="flex-1 bg-transparent px-2 py-2 text-sm text-white placeholder-gray-600 focus:outline-none font-medium"
-                                    />
-                                </div>
-                                <button type="submit" disabled={!adminMessage.trim()} className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 rounded-xl font-bold text-white shadow-lg shadow-violet-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95 flex items-center gap-2">
-                                    <span>Send</span>
-                                    <i className="fa-solid fa-paper-plane text-xs"></i>
-                                </button>
-                            </form>
                         </div>
-                    </div>
-                )}
+                    )
+                }
 
-                {activeTab === 'server' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4">
-                        <div className="flex justify-between items-center mb-8">
-                            <div>
-                                <h1 className="text-3xl font-bold text-white mb-2">Server Status</h1>
-                                <p className="text-gray-400 text-sm">Monitor system health and error logs.</p>
-                            </div>
-                            <button
-                                onClick={checkServer}
-                                disabled={loadingServer}
-                                className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg shadow-emerald-600/20 flex items-center gap-2 disabled:opacity-50"
-                            >
-                                <i className={`fa-solid fa-rotate ${loadingServer ? 'animate-spin' : ''}`}></i>
-                                Refresh Status
-                            </button>
-                        </div>
-
-                        {/* Status Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                            <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl relative overflow-hidden">
-                                <p className="text-xs text-gray-500 font-bold uppercase mb-2">Server Health</p>
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-3 h-3 rounded-full ${serverStatus?.status === 'online' ? 'bg-emerald-500 shadow-[0_0_10px_#10b981]' : 'bg-red-500 shadow-[0_0_10px_#ef4444]'}`}></div>
-                                    <p className="text-2xl font-bold text-white uppercase">{serverStatus?.status || 'Unknown'}</p>
-                                </div>
-                                <p className="text-xs text-gray-600 mt-2 font-mono">Environment: {serverStatus?.env || 'Unknown'}</p>
-                            </div>
-                            <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl relative overflow-hidden">
-                                <p className="text-xs text-gray-500 font-bold uppercase mb-2">Database</p>
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-3 h-3 rounded-full ${serverStatus?.database === 'connected' ? 'bg-emerald-500 shadow-[0_0_10px_#10b981]' : 'bg-red-500 shadow-[0_0_10px_#ef4444]'}`}></div>
-                                    <p className="text-2xl font-bold text-white uppercase">{serverStatus?.database || 'Unknown'}</p>
-                                </div>
-                                <p className="text-xs text-gray-600 mt-2 font-mono">MongoDB</p>
-                            </div>
-                            <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl">
-                                <p className="text-xs text-gray-500 font-bold uppercase mb-2">Recent Errors</p>
-                                <p className="text-2xl font-bold text-white">{serverLogs.length}</p>
-                                <p className="text-xs text-gray-600 mt-2">Last 100 entries</p>
-                            </div>
-                            <div className="bg-gray-900 border border-gray-800 p-6 rounded-2xl">
-                                <p className="text-xs text-gray-500 font-bold uppercase mb-2">Realtime Connection</p>
-                                <p className="text-2xl font-bold text-white">{db['socket']?.connected ? 'Connected' : 'Disconnected'}</p>
-                                <p className="text-xs text-gray-600 mt-2 font-mono">Transport: {db['socket']?.io?.engine?.transport?.name || 'Polling'}</p>
-                            </div>
-                        </div>
-
-                        {/* Logs Table */}
-                        <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden">
-                            <div className="p-4 border-b border-gray-800 bg-gray-900/50">
-                                <h3 className="font-bold text-white">System Logs</h3>
-                            </div>
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className="text-xs text-gray-500 font-bold uppercase border-b border-gray-800">
-                                            <th className="p-5">Level</th>
-                                            <th className="p-5">Message</th>
-                                            <th className="p-5">Timestamp</th>
-                                            <th className="p-5">Context</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="text-sm">
-                                        {serverLogs.length === 0 ? (
-                                            <tr>
-                                                <td colSpan={4} className="p-8 text-center text-gray-500">No logs found.</td>
-                                            </tr>
-                                        ) : (
-                                            serverLogs.map(log => (
-                                                <tr key={log._id} className="border-b border-gray-800/50 hover:bg-white/5">
-                                                    <td className="p-5">
-                                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${log.level === 'error' ? 'bg-red-500/10 text-red-500' :
-                                                            log.level === 'warn' ? 'bg-yellow-500/10 text-yellow-500' :
-                                                                'bg-blue-500/10 text-blue-500'
-                                                            }`}>{log.level}</span>
-                                                    </td>
-                                                    <td className="p-5 text-white font-mono text-xs">{log.message}</td>
-                                                    <td className="p-5 text-gray-500">{new Date(log.timestamp).toLocaleString()}</td>
-                                                    <td className="p-5 text-gray-600 font-mono text-xs">{JSON.stringify(log.metadata || {})}</td>
-                                                </tr>
-                                            ))
-                                        )}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === 'settings' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4 max-w-4xl">
-                        <h1 className="text-3xl font-bold text-white mb-8">System Configuration</h1>
-                        <div className="space-y-6">
-                            <div className="bg-gray-900 border border-gray-800 p-8 rounded-3xl space-y-6">
-                                <h3 className="text-xl font-bold text-white mb-6">General Details</h3>
-                                <div className="grid grid-cols-2 gap-6">
-                                    <div className="space-y-2">
-                                        <label className="text-xs text-gray-500 font-bold uppercase">Store Name</label>
-                                        <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-violet-500 outline-none" value={settings.storeName} onChange={e => setSettings({ ...settings, storeName: e.target.value })} />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-xs text-gray-500 font-bold uppercase">Discord Invite</label>
-                                        <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-violet-500 outline-none" value={settings.discordLink} onChange={e => setSettings({ ...settings, discordLink: e.target.value })} />
-                                    </div>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs text-gray-500 font-bold uppercase">Hero Image URL</label>
-                                    <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-violet-500 outline-none" value={settings.heroImage} onChange={e => setSettings({ ...settings, heroImage: e.target.value })} />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs text-gray-500 font-bold uppercase">Allowed Email Domains (Comma Separated)</label>
-                                    <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-violet-500 outline-none" placeholder="e.g. gmail.com, yahoo.com" value={settings.allowedDomains.join(", ")} onChange={e => setSettings({ ...settings, allowedDomains: e.target.value.split(',').map(s => s.trim()).filter(s => s) })} />
-                                </div>
-                            </div>
-
-                            <div className="bg-gray-900 border border-gray-800 p-6 rounded-3xl flex items-center justify-between col-span-2">
+                {
+                    activeTab === 'orders' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4">
+                            <div className="flex justify-between items-center mb-8">
                                 <div>
-                                    <h3 className="font-bold text-white text-lg">Maintenance Mode</h3>
-                                    <p className="text-sm text-gray-500">Lock store for non-admins.</p>
+                                    <h1 className="text-3xl font-bold text-white mb-2">Order Management</h1>
+                                    <p className="text-gray-400 text-sm">Review pending payments and grant access.</p>
                                 </div>
-                                <button onClick={() => setSettings({ ...settings, maintenanceMode: !settings.maintenanceMode })} className={`w-14 h-8 rounded-full relative transition-colors ${settings.maintenanceMode ? 'bg-violet-600' : 'bg-gray-700'}`}>
-                                    <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${settings.maintenanceMode ? 'left-7' : 'left-1'}`}></div>
-                                </button>
                             </div>
 
-                            <button onClick={handleSaveSettings} className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-2xl font-bold text-white shadow-xl shadow-fuchsia-600/20 hover:scale-[1.01] transition-transform">Save All Settings</button>
-                        </div>
-                    </div>
-                )}
+                            <div className="space-y-4">
+                                {orders.length === 0 ? (
+                                    <div className="py-12 flex flex-col items-center justify-center text-gray-500 border border-dashed border-gray-800 rounded-3xl bg-gray-900/20">
+                                        <i className="fa-solid fa-money-check-dollar text-4xl mb-4 opacity-50"></i>
+                                        <p>No orders found.</p>
+                                    </div>
+                                ) : (
+                                    orders.slice().reverse().map(order => {
+                                        return (
+                                            <div key={order.id} className="bg-gray-900/50 border border-gray-800 p-6 rounded-2xl flex flex-col md:flex-row gap-6 relative overflow-hidden group hover:bg-gray-900 transition">
+                                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${order.status === 'approved' ? 'bg-emerald-500' :
+                                                    order.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'
+                                                    }`}></div>
 
-                {/* Banned Users Modal */}
-                {showBannedModal && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-                        <div className="bg-[#111] border border-gray-800 rounded-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[70vh] shadow-2xl">
-                            <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/50">
-                                <h3 className="font-bold text-white">Banned Users</h3>
-                                <button onClick={() => setShowBannedModal(false)} className="text-gray-500 hover:text-white"><i className="fa-solid fa-xmark"></i></button>
-                            </div>
-                            <div className="p-4 overflow-y-auto flex-1 custom-scrollbar">
-                                {bannedUsers.length === 0 ? <p className="text-center text-gray-600 text-sm py-8">No banned users.</p> : (
-                                    <ul className="space-y-2">
-                                        {bannedUsers.map(u => (
-                                            <li key={u.userId} className="flex justify-between items-center p-3 bg-white/5 rounded-xl hover:bg-white/10 transition">
-                                                <span className="text-gray-300 text-sm font-bold">{u.username}</span>
-                                                <button onClick={() => handleUnbanUser(u.userId)} className="text-xs text-emerald-400 hover:bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 font-bold transition">Unban</button>
-                                            </li>
-                                        ))}
-                                    </ul>
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${order.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500' :
+                                                            order.status === 'rejected' ? 'bg-red-500/10 text-red-500' : 'bg-yellow-500/10 text-yellow-500'
+                                                            }`}>{order.status}</span>
+                                                        <span className="text-xs text-gray-600 ml-auto">{new Date(order.timestamp).toLocaleString()}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-start">
+                                                        <div>
+                                                            <h3 className="text-white font-bold text-lg mb-1">{order.productTitle}</h3>
+                                                            <p className="text-sm text-gray-400">User: <span className="text-white font-bold">{order.username}</span> ({order.userId})</p>
+                                                            <p className="text-xs text-gray-500 font-mono mt-2 bg-gray-900/50 p-2 rounded inline-block">Memo: {order.memo}</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-2xl font-bold text-emerald-400 font-mono">{order.amount.toLocaleString()} {order.currency}</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex flex-col justify-center gap-2 border-l border-gray-800 pl-6">
+                                                    {order.status === 'pending' && (
+                                                        <>
+                                                            <button onClick={() => handleApproveOrder(order)} className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/20 transition-transform active:scale-95 flex items-center gap-2">
+                                                                <i className="fa-solid fa-check"></i> Approve
+                                                            </button>
+                                                            <button onClick={() => handleRejectOrder(order.id)} className="px-6 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold text-sm border border-gray-700 flex items-center gap-2">
+                                                                <i className="fa-solid fa-xmark"></i> Reject
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    {order.status !== 'pending' && (
+                                                        <div className="text-center w-full px-6">
+                                                            <p className="text-xs text-gray-500 font-bold uppercase">Processed</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })
                                 )}
                             </div>
                         </div>
-                    </div>
-                )}
-            </main>
-        </div>
+                    )
+                }
+
+                {
+                    activeTab === 'users' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4">
+                            <div className="flex justify-between items-center mb-8">
+                                <h1 className="text-3xl font-bold text-white">User Base</h1>
+                                <button onClick={() => setEditingUser({ username: "", email: "", password: "" })} className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-fuchsia-600/20"><i className="fa-solid fa-plus mr-2"></i> Add User</button>
+                            </div>
+                            {/* New User Modal here if needed */}
+                            {editingUser && (
+                                <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                                    <div className="bg-gray-900 w-full max-w-md rounded-2xl border border-gray-700 p-8 shadow-2xl">
+                                        <h2 className="text-xl font-bold mb-6 text-white">Add New User</h2>
+                                        <div className="space-y-4">
+                                            <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" placeholder="Username" value={editingUser.username} onChange={e => setEditingUser({ ...editingUser, username: e.target.value })} />
+                                            <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" placeholder="Email" type="email" value={editingUser.email} onChange={e => setEditingUser({ ...editingUser, email: e.target.value })} />
+                                            <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" placeholder="Password" type="password" value={editingUser.password} onChange={e => setEditingUser({ ...editingUser, password: e.target.value })} />
+                                            <div className="flex gap-4 pt-4">
+                                                <button onClick={handleSaveUser} className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 py-3 rounded-xl font-bold text-white">Create User</button>
+                                                <button onClick={() => setEditingUser(null)} className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold text-white">Cancel</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                            <div className="space-y-2">
+                                {users.filter(u => u && u.userId !== user?.userId).map(u => (
+                                    u && (
+                                        <div key={u._id} className="bg-gray-900/50 border border-gray-800 p-4 rounded-xl flex justify-between items-center hover:bg-gray-900 transition-colors">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${u.role === 'staff' ? 'from-fuchsia-500 to-pink-500' : 'from-violet-500 to-indigo-500'} flex items-center justify-center text-white font-bold shadow-lg`}>
+                                                    {(u.username || "?").substring(0, 1).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <h3 className="font-bold text-white">{u.username}</h3>
+                                                        {u.role === 'admin' && <span className="bg-violet-500 text-white text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Admin</span>}
+                                                        {u.role === 'staff' && <span className="bg-fuchsia-500 text-white text-[10px] px-1.5 py-0.5 rounded font-bold uppercase">Staff</span>}
+                                                    </div>
+                                                    <p className="text-sm text-gray-500">{u.email}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                {/* Simplified Actions */}
+                                                {u.role !== 'admin' && (
+                                                    u.role === 'user' ?
+                                                        <button onClick={async () => { if (confirm("Promote?")) { await db.setUserRole(u.userId, 'staff'); refresh(); } }} className="text-xs text-fuchsia-400 font-bold hover:underline">Promote</button> :
+                                                        <button onClick={async () => { if (confirm("Demote?")) { await db.setUserRole(u.userId, 'user'); refresh(); } }} className="text-xs text-gray-400 font-bold hover:underline">Demote</button>
+                                                )}
+                                                <div className="w-px h-4 bg-gray-700 mx-2"></div>
+                                                <button onClick={() => handleBanUser(u.userId)} className="text-gray-500 hover:text-red-500"><i className="fa-solid fa-ban"></i></button>
+                                            </div>
+                                        </div>
+                                    )))}
+                            </div>
+                        </div>
+                    )
+                }
+
+                {
+                    activeTab === 'chat' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 h-[calc(100vh-8rem)] flex flex-col">
+                            <div className="flex justify-between items-center mb-6 shrink-0">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-white mb-2">Live Chat Moderation</h1>
+                                    <p className="text-gray-400 text-sm">Monitor and moderate global chat in real-time.</p>
+                                </div>
+                                <div className="flex gap-3">
+                                    <button onClick={handleToggleChat} className={`px-4 py-2 rounded-xl font-bold text-sm border transition-all shadow-lg flex items-center gap-2 ${settings.chatEnabled ? 'bg-red-500/10 text-red-500 border-red-500/50 hover:bg-red-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/50 hover:bg-emerald-500/20'}`}>
+                                        <i className={`fa-solid ${settings.chatEnabled ? 'fa-video-slash' : 'fa-video'}`}></i>
+                                        {settings.chatEnabled ? 'Disable Chat' : 'Enable Chat'}
+                                    </button>
+                                    <button onClick={() => setShowBannedModal(true)} className="px-4 py-2 bg-gray-800 text-gray-300 border border-gray-700 rounded-xl font-bold text-sm hover:bg-gray-700 hover:text-white transition-all shadow-lg">
+                                        <i className="fa-solid fa-user-slash mr-2"></i> Banned Users
+                                    </button>
+                                    <button onClick={() => { if (confirm("Clear all chat history?")) { db.clearChat().then(() => setChatMessages([])); } }} className="px-4 py-2 bg-orange-500/10 text-orange-500 border border-orange-500/50 rounded-xl font-bold text-sm hover:bg-orange-500/20 hover:text-orange-400 transition-all shadow-lg">
+                                        <i className="fa-solid fa-trash mr-2"></i> Clear History
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex-1 bg-gray-900/50 backdrop-blur-md border border-gray-800 rounded-3xl overflow-hidden flex flex-col shadow-2xl relative">
+                                {/* Messages Area */}
+                                <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-gray-900/30">
+                                    {chatMessages.length === 0 ? (
+                                        <div className="h-full flex flex-col items-center justify-center text-gray-600">
+                                            <i className="fa-solid fa-comments text-5xl mb-4 opacity-50"></i>
+                                            <p>No messages in history.</p>
+                                        </div>
+                                    ) : (
+                                        chatMessages.slice().reverse().map(msg => {
+                                            const isAdmin = msg.role === 'admin';
+                                            return (
+                                                <div key={msg.id} className="group flex items-start gap-4 hover:bg-white/5 p-3 rounded-2xl transition-all border border-transparent hover:border-gray-800">
+                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold shadow-lg ${isAdmin ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white' : 'bg-gray-800 text-gray-400'}`}>
+                                                        {msg.username[0].toUpperCase()}
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex justify-between items-start">
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className={`font-bold text-sm ${isAdmin ? 'text-violet-400' : 'text-gray-200'}`}>{msg.username}</span>
+                                                                    {isAdmin && <span className="bg-violet-500/20 text-violet-300 text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Admin</span>}
+                                                                    {msg.role === 'staff' && <span className="bg-fuchsia-500/20 text-fuchsia-300 text-[10px] px-1.5 py-0.5 rounded uppercase font-bold tracking-wider">Staff</span>}
+                                                                </div>
+                                                                <p className="text-gray-300 mt-1 text-sm leading-relaxed break-words">{msg.content}</p>
+                                                                {msg.imageUrl && (
+                                                                    <div className="mt-2 rounded-lg overflow-hidden border border-gray-700 w-fit">
+                                                                        <img src={msg.imageUrl} alt="attachment" className="max-h-48 object-cover" />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <span className="text-xs text-gray-600 whitespace-nowrap">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                                                <button onClick={() => { if (confirm("Delete this message?")) { db.deleteMessage(msg.id); setChatMessages(prev => prev.filter(m => m.id !== msg.id)); } }} className="w-8 h-8 rounded-lg bg-gray-800 text-gray-500 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all" title="Delete Message">
+                                                                    <i className="fa-solid fa-trash text-xs"></i>
+                                                                </button>
+                                                                {msg.role !== 'admin' && (
+                                                                    <button onClick={() => handleBanUser(msg.userId)} className="w-8 h-8 rounded-lg bg-gray-800 text-gray-500 hover:text-red-400 hover:bg-red-500/10 flex items-center justify-center transition-all" title="Ban User">
+                                                                        <i className="fa-solid fa-gavel text-xs"></i>
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+
+                                {/* Input Area */}
+                                <form onSubmit={handleAdminSendMessage} className="p-4 bg-gray-900 border-t border-gray-800 flex gap-3">
+                                    <div className="flex-1 bg-gray-950 border border-gray-800 rounded-xl flex items-center p-1.5 focus-within:border-violet-500 transition-colors">
+                                        <div className="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center mr-2">
+                                            <i className="fa-solid fa-shield-cat text-violet-500"></i>
+                                        </div>
+                                        <input
+                                            value={adminMessage}
+                                            onChange={e => setAdminMessage(e.target.value)}
+                                            placeholder="Broadcast message as Administrator..."
+                                            className="flex-1 bg-transparent px-2 py-2 text-sm text-white placeholder-gray-600 focus:outline-none font-medium"
+                                        />
+                                    </div>
+                                    <button type="submit" disabled={!adminMessage.trim()} className="px-6 py-3 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 rounded-xl font-bold text-white shadow-lg shadow-violet-600/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all transform active:scale-95 flex items-center gap-2">
+                                        <span>Send</span>
+                                        <i className="fa-solid fa-paper-plane text-xs"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    )
+                }
+
+
+
+                {
+                    activeTab === 'settings' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 max-w-4xl">
+                            <h1 className="text-3xl font-bold text-white mb-8">System Configuration</h1>
+                            <div className="space-y-6">
+                                <div className="bg-gray-900 border border-gray-800 p-8 rounded-3xl space-y-6">
+                                    <h3 className="text-xl font-bold text-white mb-6">General Details</h3>
+                                    <div className="grid grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-xs text-gray-500 font-bold uppercase">Store Name</label>
+                                            <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-violet-500 outline-none" value={settings.storeName} onChange={e => setSettings({ ...settings, storeName: e.target.value })} />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-xs text-gray-500 font-bold uppercase">Discord Invite</label>
+                                            <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-violet-500 outline-none" value={settings.discordLink} onChange={e => setSettings({ ...settings, discordLink: e.target.value })} />
+                                        </div>
+
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs text-gray-500 font-bold uppercase">Hero Image URL</label>
+                                        <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-violet-500 outline-none" value={settings.heroImage} onChange={e => setSettings({ ...settings, heroImage: e.target.value })} />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-xs text-gray-500 font-bold uppercase">Allowed Email Domains (Comma Separated)</label>
+                                        <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-violet-500 outline-none" placeholder="e.g. gmail.com, yahoo.com" value={settings.allowedDomains.join(", ")} onChange={e => setSettings({ ...settings, allowedDomains: e.target.value.split(',').map(s => s.trim()).filter(s => s) })} />
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-900 border border-gray-800 p-6 rounded-3xl flex items-center justify-between col-span-2">
+                                    <div>
+                                        <h3 className="font-bold text-white text-lg">Maintenance Mode</h3>
+                                        <p className="text-sm text-gray-500">Lock store for non-admins.</p>
+                                    </div>
+                                    <button onClick={() => setSettings({ ...settings, maintenanceMode: !settings.maintenanceMode })} className={`w-14 h-8 rounded-full relative transition-colors ${settings.maintenanceMode ? 'bg-violet-600' : 'bg-gray-700'}`}>
+                                        <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${settings.maintenanceMode ? 'left-7' : 'left-1'}`}></div>
+                                    </button>
+                                </div>
+
+                                <button onClick={handleSaveSettings} className="w-full py-4 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-2xl font-bold text-white shadow-xl shadow-fuchsia-600/20 hover:scale-[1.01] transition-transform">Save All Settings</button>
+                            </div>
+                        </div>
+                    )
+                }
+
+                {/* Banned Users Modal */}
+                {
+                    showBannedModal && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+                            <div className="bg-[#111] border border-gray-800 rounded-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[70vh] shadow-2xl">
+                                <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/50">
+                                    <h3 className="font-bold text-white">Banned Users</h3>
+                                    <button onClick={() => setShowBannedModal(false)} className="text-gray-500 hover:text-white"><i className="fa-solid fa-xmark"></i></button>
+                                </div>
+                                <div className="p-4 overflow-y-auto flex-1 custom-scrollbar">
+                                    {bannedUsers.length === 0 ? <p className="text-center text-gray-600 text-sm py-8">No banned users.</p> : (
+                                        <ul className="space-y-2">
+                                            {bannedUsers.map(u => (
+                                                <li key={u.userId} className="flex justify-between items-center p-3 bg-white/5 rounded-xl hover:bg-white/10 transition">
+                                                    <span className="text-gray-300 text-sm font-bold">{u.username}</span>
+                                                    <button onClick={() => handleUnbanUser(u.userId)} className="text-xs text-emerald-400 hover:bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 font-bold transition">Unban</button>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
+            </main >
+        </div >
     );
 };
 

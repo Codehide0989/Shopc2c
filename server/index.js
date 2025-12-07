@@ -5,7 +5,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { User, Product, Category, Review, ChatMessage, AppSettings, Permission, Coupon, ServerLog } from './models/index.js';
+import { User, Product, Category, Review, ChatMessage, AppSettings, Permission, Coupon, ServerLog, ForumPost } from './models/index.js';
 
 process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err);
@@ -583,6 +583,16 @@ app.post('/api/admin/clear-chat', async (req, res) => {
     }
 });
 
+// Get All Users
+app.get('/api/users', async (req, res) => {
+    try {
+        const users = await User.find();
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Get Single User (for session refresh)
 app.get('/api/users/:userId', async (req, res) => {
     try {
@@ -623,6 +633,167 @@ app.post('/api/admin/set-role', async (req, res) => {
     }
 });
 
+// Forum
+app.get('/api/forum', async (req, res) => {
+    try {
+        const posts = await ForumPost.find({ status: 'approved' }).sort({ createdAt: -1 });
+        res.json(posts);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/forum/:id', async (req, res) => {
+    try {
+        const post = await ForumPost.findOne({ id: req.params.id });
+        if (!post) {
+            return res.status(404).json({ error: "Post not found" });
+        }
+        res.json(post);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/forum', async (req, res) => {
+    try {
+        const { title, content, tags, author, images } = req.body;
+
+        if (!tags || tags.length === 0) {
+            return res.status(400).json({ error: "Tags are required" });
+        }
+
+
+        // Strict Auth Check - No Guests
+        if (!author || !author.userId) {
+            return res.status(401).json({ error: "You must be logged in to create a post." });
+        }
+
+        // Verify user exists in DB to prevent spoofing
+        const userExists = await User.findOne({ userId: author.userId });
+        if (!userExists) {
+            return res.status(401).json({ error: "Invalid user account." });
+        }
+
+        // Check for pending posts by this user
+        const existingPending = await ForumPost.findOne({
+            'author.userId': author.userId,
+            status: 'pending'
+        });
+
+        if (existingPending) {
+            return res.status(400).json({ error: "You already have a pending post. Please wait for approval." });
+        }
+
+        const isAdminOrStaff = userExists.role === 'admin' || userExists.role === 'staff';
+
+        const newPost = new ForumPost({
+            id: `post_${randomUUID()}`,
+            title,
+            content,
+            tags,
+            author: {
+                userId: userExists.userId,
+                username: userExists.username, // Source of truth from DB
+                role: userExists.role
+            },
+            status: isAdminOrStaff ? 'approved' : 'pending',
+            replies: [],
+            images: images || []
+        });
+
+        await newPost.save();
+        res.status(201).json(newPost);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/forum/:id/reply', async (req, res) => {
+    try {
+        const { content, author } = req.body;
+
+        if (!content || !author || !author.username) {
+            return res.status(400).json({ error: "Content and author name are required" });
+        }
+
+        const reply = {
+            id: `reply_${randomUUID()}`,
+            content,
+            author,
+            createdAt: Date.now()
+        };
+
+        const post = await ForumPost.findOneAndUpdate(
+            { id: req.params.id },
+            { $push: { replies: reply } },
+            { new: true }
+        );
+
+        if (!post) {
+            return res.status(404).json({ error: "Post not found" });
+        }
+
+        res.json(post);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Admin Forum Routes
+app.get('/api/admin/forum/pending', async (req, res) => {
+    try {
+        const posts = await ForumPost.find({ status: 'pending' }).sort({ createdAt: -1 });
+        res.json(posts);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/api/admin/forum/:id/status', async (req, res) => {
+    try {
+        const { status } = req.body; // 'approved' or 'rejected'
+        if (!['approved', 'rejected'].includes(status)) {
+            return res.status(400).json({ error: "Invalid status" });
+        }
+
+        const post = await ForumPost.findOneAndUpdate(
+            { id: req.params.id },
+            { status },
+            { new: true }
+        );
+
+        if (!post) {
+            return res.status(404).json({ error: "Post not found" });
+        }
+
+        res.json(post);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+
+// Admin - Get All Posts (for management)
+app.get('/api/admin/forum/all', async (req, res) => {
+    try {
+        const posts = await ForumPost.find().sort({ createdAt: -1 });
+        res.json(posts);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Admin - Delete Post
+app.delete('/api/forum/:id', async (req, res) => {
+    try {
+        await ForumPost.findOneAndDelete({ id: req.params.id });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // Helper to log errors
 const logError = async (err, context = {}) => {

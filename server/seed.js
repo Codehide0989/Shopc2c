@@ -56,6 +56,24 @@ mongoose.connect(process.env.MONGODB_URI)
         await Product.insertMany(INITIAL_PRODUCTS);
         console.log(`Seeded ${INITIAL_PRODUCTS.length} products.`);
 
+        // Seed Settings if not exists (or ensure defaults)
+        const Settings = await import('./models/index.js').then(m => m.AppSettings);
+        const settings = await Settings.findOne();
+        if (!settings) {
+            await Settings.create({
+                storeName: "ShopC2C",
+                heroImage: "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&q=80&w=1974&ixlib=rb-4.0.3",
+                maintenanceMode: false,
+                chatEnabled: true,
+                communityLink: "https://discord.gg/example",
+                discordLink: "https://discord.gg/example"
+            });
+            console.log('Seeded default AppSettings.');
+        } else {
+            // Optional: force update specific fields if needed
+            // await Settings.updateOne({}, { $set: { communityLink: "https://discord.gg/example" } }); 
+        }
+
         // Seed Admin User
         const adminExists = await import('./models/index.js').then(m => m.User.findOne({ userId: 'admin' }));
         if (!adminExists) {

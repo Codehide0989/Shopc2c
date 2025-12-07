@@ -85,6 +85,7 @@ const appSettingsSchema = new mongoose.Schema({
     heroImage: String,
     maintenanceMode: { type: Boolean, default: false },
     chatEnabled: { type: Boolean, default: true },
+    communityLink: { type: String, default: "" },
     allowedDomains: [String]
 });
 
@@ -96,6 +97,31 @@ const serverLogSchema = new mongoose.Schema({
     metadata: Object
 });
 
+const forumPostSchema = new mongoose.Schema({
+    id: { type: String, required: true, unique: true },
+    title: { type: String, required: true },
+    content: { type: String, required: true },
+    tags: { type: [String], required: true },
+    author: {
+        userId: { type: String, required: true },
+        username: { type: String, required: true }
+    },
+    replies: [{
+        id: { type: String, required: true },
+        content: { type: String, required: true },
+        author: {
+            userId: { type: String }, // Optional for guests
+            username: { type: String, required: true }
+        },
+        createdAt: { type: Number, default: Date.now }
+    }],
+    status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+    createdAt: { type: Number, default: Date.now },
+    likes: { type: Number, default: 0 },
+    likedBy: { type: [String], default: [] },
+    images: { type: [String], default: [] }
+});
+
 export const User = mongoose.model('User', userSchema);
 export const Product = mongoose.model('Product', productSchema);
 export const Category = mongoose.model('Category', categorySchema);
@@ -105,3 +131,4 @@ export const Coupon = mongoose.model('Coupon', couponSchema);
 export const Permission = mongoose.model('Permission', permissionSchema);
 export const AppSettings = mongoose.model('AppSettings', appSettingsSchema);
 export const ServerLog = mongoose.model('ServerLog', serverLogSchema);
+export const ForumPost = mongoose.model('ForumPost', forumPostSchema);
