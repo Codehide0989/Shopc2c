@@ -162,6 +162,7 @@ class DatabaseAdapter {
                 maintenanceMode: false,
                 chatEnabled: true,
                 communityLink: "",
+                forumCreationEnabled: true,
                 allowedDomains: []
             };
         }

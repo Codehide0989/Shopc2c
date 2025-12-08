@@ -68,6 +68,31 @@ const CreateForumPost: React.FC<CreateForumPostProps> = ({ onNavigate, user, set
 
     // Guest Allowed - Login Check Removed
 
+    if (settings.forumCreationEnabled === false && user?.role !== 'admin' && user?.role !== 'staff') {
+        return (
+            <div className="min-h-screen bg-gray-950 text-white p-6 pt-24 flex items-center justify-center relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-red-900/20 to-transparent pointer-events-none z-0"></div>
+
+                <div className="w-full max-w-lg relative z-10 text-center bg-gray-900/50 backdrop-blur-xl border border-gray-800 rounded-3xl p-10 shadow-2xl">
+                    <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <Lock size={40} className="text-red-500" />
+                    </div>
+                    <h1 className="text-3xl font-display font-bold text-white mb-4">Posting Disabled</h1>
+                    <p className="text-gray-400 mb-8 text-lg">
+                        Forum post creation is currently disabled by administrators. <br />
+                        Please check back later or browse existing discussions.
+                    </p>
+                    <button
+                        onClick={() => onNavigate('community')}
+                        className="px-8 py-3 bg-gray-800 hover:bg-gray-700 text-white font-bold rounded-xl transition-all border border-gray-700 hover:border-gray-500"
+                    >
+                        Return to Forum
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gray-950 text-white p-6 pt-24 flex items-center justify-center relative overflow-hidden">
             {/* Background Ambience */}

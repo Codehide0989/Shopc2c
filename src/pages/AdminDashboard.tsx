@@ -922,28 +922,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
 
                 {activeTab === 'forum' && (
                     <div className="animate-in fade-in slide-in-from-bottom-4">
-                        <div className="flex justify-between items-center mb-8">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
                             <div>
                                 <h1 className="text-3xl font-bold text-white mb-2">Forum Management</h1>
                                 <p className="text-gray-400 text-sm">Approve pending posts or manage existing discussions.</p>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex flex-wrap gap-2 w-full md:w-auto">
                                 <button
                                     onClick={() => setIsAddingPost(true)}
-                                    className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-fuchsia-600/20 flex items-center gap-2 text-sm"
+                                    className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-fuchsia-600/20 flex items-center gap-2 text-sm flex-1 md:flex-none justify-center"
                                 >
                                     <i className="fa-solid fa-plus"></i> Create Post
                                 </button>
-                                <div className="bg-gray-900 border border-gray-800 p-1 rounded-xl flex gap-1">
+                                <div className="bg-gray-900 border border-gray-800 p-1 rounded-xl flex gap-1 flex-1 md:flex-none">
                                     <button
                                         onClick={() => { setForumView('pending'); db.getPendingForumPosts().then(setForumPosts); }}
-                                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${forumView === 'pending' ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:text-white'}`}
+                                        className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${forumView === 'pending' ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:text-white'}`}
                                     >
                                         Pending
                                     </button>
                                     <button
                                         onClick={() => { setForumView('all'); db.getAllForumPostsAdmin().then(setForumPosts); }}
-                                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${forumView === 'all' ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:text-white'}`}
+                                        className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${forumView === 'all' ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:text-white'}`}
                                     >
                                         All Posts
                                     </button>
@@ -1025,17 +1025,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                 </div>
                             ) : (
                                 forumPosts.map(post => (
-                                    <div key={post.id} className="bg-gray-900/50 border border-gray-800 p-6 rounded-2xl flex flex-col md:flex-row gap-6 hover:bg-gray-900 transition relative overflow-hidden group">
+                                    <div key={post.id} className="bg-gray-900/50 border border-gray-800 p-6 rounded-2xl flex flex-col lg:flex-row gap-6 hover:bg-gray-900 transition relative overflow-hidden group">
                                         <div className={`absolute left-0 top-0 bottom-0 w-1 ${post.status === 'approved' ? 'bg-emerald-500' : post.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
                                         <div className="flex-1">
-                                            <div className="flex items-center gap-3 mb-2">
+                                            <div className="flex flex-wrap items-center gap-3 mb-2">
                                                 <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${post.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500' :
                                                     post.status === 'rejected' ? 'bg-red-500/10 text-red-500' :
                                                         'bg-yellow-500/10 text-yellow-500'
                                                     }`}>{post.status}</span>
-                                                <span className="text-xs text-gray-600 ml-auto">{new Date(post.createdAt).toLocaleString()}</span>
+                                                <span className="text-xs text-gray-600 lg:ml-auto">{new Date(post.createdAt).toLocaleString()}</span>
                                             </div>
-                                            <h3 className="text-xl font-bold text-white mb-2">{post.title}</h3>
+                                            <h3 className="text-xl font-bold text-white mb-2 break-words">{post.title}</h3>
                                             {post.images && post.images.length > 0 && (
                                                 <div className="mb-4 flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
                                                     {post.images.map((img, i) => (
@@ -1043,8 +1043,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                                     ))}
                                                 </div>
                                             )}
-                                            <p className="text-gray-400 mb-4 line-clamp-3">{post.content}</p>
-                                            <div className="flex items-center gap-2">
+                                            <p className="text-gray-400 mb-4 line-clamp-3 break-words">{post.content}</p>
+                                            <div className="flex flex-wrap items-center gap-2">
                                                 {post.tags.map(tag => (
                                                     <span key={tag} className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded-lg border border-gray-700">#{tag}</span>
                                                 ))}
@@ -1053,13 +1053,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                                 </span>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col justify-center gap-2 border-l border-gray-800 pl-6 min-w-[140px]">
+                                        <div className="flex flex-row lg:flex-col justify-end lg:justify-center gap-2 lg:border-l lg:border-gray-800 lg:pl-6 min-w-[140px] pt-4 lg:pt-0 border-t border-gray-800 lg:border-t-0">
                                             {forumView === 'pending' ? (
                                                 <>
-                                                    <button onClick={() => handleForumAction(post.id, 'approved')} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-emerald-600/20 transition-transform active:scale-95 flex items-center justify-center gap-2">
+                                                    <button onClick={() => handleForumAction(post.id, 'approved')} className="flex-1 lg:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-emerald-600/20 transition-transform active:scale-95 flex items-center justify-center gap-2">
                                                         <i className="fa-solid fa-check"></i> Approve
                                                     </button>
-                                                    <button onClick={() => handleForumAction(post.id, 'rejected')} className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold text-xs border border-gray-700 flex items-center justify-center gap-2">
+                                                    <button onClick={() => handleForumAction(post.id, 'rejected')} className="flex-1 lg:flex-none px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold text-xs border border-gray-700 flex items-center justify-center gap-2">
                                                         <i className="fa-solid fa-xmark"></i> Reject
                                                     </button>
                                                 </>
@@ -1071,7 +1071,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                                         const freshPosts = await db.getAllForumPostsAdmin();
                                                         setForumPosts(freshPosts);
                                                     }
-                                                }} className="px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2">
+                                                }} className="w-full px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2">
                                                     <i className="fa-solid fa-trash"></i> Delete
                                                 </button>
                                             )}
