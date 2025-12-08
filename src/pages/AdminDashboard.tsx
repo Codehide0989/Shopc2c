@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Product, Category, User, Review, AppSettings, ChatMessage, UserPermission, Coupon, Order, ForumPost } from "../types";
+import { Product, Category, User, Review, AppSettings, ChatMessage, UserPermission, Coupon, Order, ForumPost, C2CIde } from "../types";
 import { db } from "../services/db";
 import { generateId } from "../utils/helpers";
 import ProductCard from "../components/ProductCard";
@@ -39,7 +39,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
     const [forumPosts, setForumPosts] = useState<ForumPost[]>([]);
     const [forumView, setForumView] = useState<'pending' | 'all'>('pending');
     const [bannedUsers, setBannedUsers] = useState<User[]>([]);
-    const [c2cIdes, setC2CIdes] = useState<any[]>([]);
+    const [c2cIdes, setC2CIdes] = useState<C2CIde[]>([]);
+    const [editingIde, setEditingIde] = useState<Partial<C2CIde> | null>(null);
 
     // Edit/Create State
     const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
@@ -344,8 +345,23 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
 
     const handleDeleteIde = async (id: string) => {
         if (!confirm("Delete this environment?")) return;
-        await db.deleteC2CIdeLink(id);
-        refresh();
+        try {
+            await db.deleteC2CIdeLink(id);
+            refresh();
+        } catch (e: any) {
+            alert("Failed to delete: " + e.message);
+        }
+    };
+
+    const handleUpdateIde = async () => {
+        if (!editingIde || !editingIde.title || !editingIde.url || !editingIde.id) return;
+        try {
+            await db.updateC2CIdeLink(editingIde.id, editingIde);
+            setEditingIde(null);
+            refresh();
+        } catch (e: any) {
+            alert("Failed to update: " + e.message);
+        }
     };
 
     return (
@@ -831,6 +847,35 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                             <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
                                 <i className="fa-solid fa-plus-circle text-violet-500"></i> Add New Environment
                             </h2>
+                            {editingIde && (
+                                <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                                    <div className="bg-gray-900 w-full max-w-lg rounded-2xl border border-gray-700 p-8 shadow-2xl relative">
+                                        <h3 className="text-xl font-bold text-white mb-6">Edit Environment</h3>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Title</label>
+                                                <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" value={editingIde.title} onChange={e => setEditingIde({ ...editingIde, title: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">URL</label>
+                                                <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" value={editingIde.url} onChange={e => setEditingIde({ ...editingIde, url: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Image URL</label>
+                                                <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" value={editingIde.imageUrl} onChange={e => setEditingIde({ ...editingIde, imageUrl: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Timer (Minutes)</label>
+                                                <input type="number" className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" value={editingIde.timerDuration} onChange={e => setEditingIde({ ...editingIde, timerDuration: parseInt(e.target.value) })} />
+                                            </div>
+                                            <div className="flex gap-4 pt-4">
+                                                <button onClick={handleUpdateIde} className="flex-1 bg-violet-600 hover:bg-violet-500 py-3 rounded-xl font-bold text-white">Save Changes</button>
+                                                <button onClick={() => setEditingIde(null)} className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold text-white">Cancel</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                             <form onSubmit={(e) => {
                                 e.preventDefault();
                                 handleAddIde(e);
@@ -891,6 +936,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                             <h3 className="font-bold text-white text-lg">{ide.title}</h3>
                                             <p className="text-gray-500 text-xs font-mono">{ide.timerDuration} mins limit</p>
                                         </div>
+                                        <button onClick={() => setEditingIde(ide)} className="w-8 h-8 rounded-lg bg-blue-500/10 hover:bg-blue-500 text-blue-500 hover:text-white flex items-center justify-center transition mr-2">
+                                            <i className="fa-solid fa-pencil"></i>
+                                        </button>
                                         <button onClick={() => handleDeleteIde(ide.id)} className="w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white flex items-center justify-center transition">
                                             <i className="fa-solid fa-trash"></i>
                                         </button>

@@ -103,10 +103,7 @@ const App = () => {
         if (view === "staff" && user?.role === 'staff') return <StaffDashboard user={user} onLogout={handleLogout} onBackToStore={() => setView("home")} />;
         if (view === "admin") return <Login onUserLogin={handleUserLogin} onAdminLogin={handleAdminLogin} onSwitch={() => setView("signup")} maintenanceMode={settings.maintenanceMode} />;
 
-        // Access Control for C2C IDE
-        if ((view === "c2c-ide" || view === "c2c-ide-view") && !user && !isAdmin) {
-            return <Login onUserLogin={handleUserLogin} onAdminLogin={handleAdminLogin} onSwitch={() => setView("signup")} maintenanceMode={settings.maintenanceMode} />;
-        }
+
 
         if (view === "login") return <Login onUserLogin={handleUserLogin} onAdminLogin={handleAdminLogin} onSwitch={() => setView("signup")} maintenanceMode={settings.maintenanceMode} />;
         if (view === "signup") return <Signup onLogin={handleUserLogin} onSwitch={() => setView("login")} />;

@@ -806,6 +806,22 @@ app.post('/api/c2cide', async (req, res) => {
     }
 });
 
+
+app.put('/api/c2cide/:id', async (req, res) => {
+    try {
+        const { title, url, imageUrl, timerDuration } = req.body;
+        const updatedIde = await C2CIde.findOneAndUpdate(
+            { id: req.params.id },
+            { title, url, imageUrl, timerDuration },
+            { new: true }
+        );
+        if (!updatedIde) return res.status(404).json({ error: "IDE not found" });
+        res.json(updatedIde);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.delete('/api/c2cide/:id', async (req, res) => {
     try {
         await C2CIde.findOneAndDelete({ id: req.params.id });

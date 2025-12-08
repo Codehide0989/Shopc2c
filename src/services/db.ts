@@ -578,10 +578,20 @@ class DatabaseAdapter {
         if (!res.ok) throw new Error("Failed to save IDE link");
     }
 
+    async updateC2CIdeLink(id: string, ide: Partial<C2CIde>) {
+        const res = await fetch(`${this.apiUrl}/c2cide/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ide)
+        });
+        if (!res.ok) throw new Error("Failed to update IDE link");
+    }
+
     async deleteC2CIdeLink(id: string) {
-        await fetch(`${this.apiUrl}/c2cide/${id}`, {
+        const res = await fetch(`${this.apiUrl}/c2cide/${id}`, {
             method: 'DELETE'
         });
+        if (!res.ok) throw new Error("Failed to delete IDE link");
     }
 }
 
