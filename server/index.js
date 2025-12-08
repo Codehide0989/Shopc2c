@@ -663,40 +663,45 @@ app.post('/api/forum', async (req, res) => {
             return res.status(400).json({ error: "Tags are required" });
         }
 
+        let postAuthor = author;
 
-        // Strict Auth Check - No Guests
+        // Guest Handling - REJECTED
         if (!author || !author.userId) {
             return res.status(401).json({ error: "You must be logged in to create a post." });
         }
 
         // Verify user exists in DB to prevent spoofing
         const userExists = await User.findOne({ userId: author.userId });
-        if (!userExists) {
+        if (userExists) {
+            postAuthor = {
+                userId: userExists.userId,
+                username: userExists.username,
+                role: userExists.role
+            };
+        } else {
             return res.status(401).json({ error: "Invalid user account." });
         }
 
-        // Check for pending posts by this user
-        const existingPending = await ForumPost.findOne({
-            'author.userId': author.userId,
-            status: 'pending'
-        });
+        // Check for pending posts by this user (even guest)
+        if (postAuthor.role !== 'admin' && postAuthor.role !== 'staff') {
+            const existingPending = await ForumPost.findOne({
+                'author.userId': postAuthor.userId,
+                status: 'pending'
+            });
 
-        if (existingPending) {
-            return res.status(400).json({ error: "You already have a pending post. Please wait for approval." });
+            if (existingPending) {
+                return res.status(400).json({ error: "You already have a pending post. Please wait for approval." });
+            }
         }
 
-        const isAdminOrStaff = userExists.role === 'admin' || userExists.role === 'staff';
+        const isAdminOrStaff = postAuthor.role === 'admin' || postAuthor.role === 'staff';
 
         const newPost = new ForumPost({
             id: `post_${randomUUID()}`,
             title,
             content,
             tags,
-            author: {
-                userId: userExists.userId,
-                username: userExists.username, // Source of truth from DB
-                role: userExists.role
-            },
+            author: postAuthor,
             status: isAdminOrStaff ? 'approved' : 'pending',
             replies: [],
             images: images || []
@@ -713,14 +718,37 @@ app.post('/api/forum/:id/reply', async (req, res) => {
     try {
         const { content, author } = req.body;
 
-        if (!content || !author || !author.username) {
-            return res.status(400).json({ error: "Content and author name are required" });
+        if (!content) {
+            return res.status(400).json({ error: "Content is required" });
+        }
+
+        let replyAuthor = author;
+
+        // Guest Handling
+        if (!author || !author.userId) {
+            replyAuthor = {
+                userId: `guest_${randomUUID().substr(0, 8)}`,
+                username: "Guest",
+                role: "guest"
+            };
+        } else {
+            // Verify user exists
+            const userExists = await User.findOne({ userId: author.userId });
+            if (userExists) {
+                replyAuthor = {
+                    userId: userExists.userId,
+                    username: userExists.username,
+                    role: userExists.role
+                };
+            } else {
+                return res.status(401).json({ error: "Invalid user account." });
+            }
         }
 
         const reply = {
             id: `reply_${randomUUID()}`,
             content,
-            author,
+            author: replyAuthor,
             createdAt: Date.now()
         };
 
@@ -772,6 +800,42 @@ app.patch('/api/admin/forum/:id/status', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+app.post('/api/forum/:id/like', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        if (!userId) return res.status(400).json({ error: "User ID required" });
+
+        const post = await ForumPost.findOne({ id: req.params.id });
+        if (!post) return res.status(404).json({ error: "Post not found" });
+
+        const hasLiked = post.likedBy.includes(userId);
+        let update;
+
+        if (hasLiked) {
+            update = {
+                $pull: { likedBy: userId },
+                $inc: { likes: -1 }
+            };
+        } else {
+            update = {
+                $addToSet: { likedBy: userId },
+                $inc: { likes: 1 }
+            };
+        }
+
+        const updatedPost = await ForumPost.findOneAndUpdate(
+            { id: req.params.id },
+            update,
+            { new: true }
+        );
+
+        res.json(updatedPost);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 
 
 

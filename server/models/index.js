@@ -86,6 +86,7 @@ const appSettingsSchema = new mongoose.Schema({
     maintenanceMode: { type: Boolean, default: false },
     chatEnabled: { type: Boolean, default: true },
     communityLink: { type: String, default: "" },
+    forumCreationEnabled: { type: Boolean, default: true },
     allowedDomains: [String]
 });
 

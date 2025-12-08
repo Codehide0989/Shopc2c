@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { db } from '../services/db';
 import { ArrowLeft, Send, AlertCircle, Lock } from 'lucide-react';
-import { User } from '../types';
+import { User, AppSettings } from '../types';
 
 interface CreateForumPostProps {
     onNavigate: (view: string) => void;
     user: User | null;
+    settings: AppSettings;
 }
 
-const CreateForumPost: React.FC<CreateForumPostProps> = ({ onNavigate, user }) => {
+const CreateForumPost: React.FC<CreateForumPostProps> = ({ onNavigate, user, settings }) => {
     const [title, setTitle] = useState('');
     const [content, setContent] = useState('');
     const [tags, setTags] = useState('');
@@ -16,12 +17,24 @@ const CreateForumPost: React.FC<CreateForumPostProps> = ({ onNavigate, user }) =
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
+    useEffect(() => {
+        if (!user) {
+            onNavigate('login');
+            return;
+        }
+    }, [user, onNavigate]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
+        if (settings.forumCreationEnabled === false && user?.role !== 'admin' && user?.role !== 'staff') {
+            alert("Forum post creation is currently disabled by administrators.");
+            return;
+        }
+
         if (!user) {
-            setError("You must be logged in to post.");
+            setError("You must be logged in to create a post.");
             return;
         }
 
@@ -38,10 +51,10 @@ const CreateForumPost: React.FC<CreateForumPostProps> = ({ onNavigate, user }) =
                 title,
                 content,
                 tags: tagList,
-                author: {
+                author: user ? {
                     userId: user.userId,
                     username: user.username
-                },
+                } : undefined, // Check backend handles undefined author as guest
                 images
             });
             alert("Post submitted! It is now pending approval.");
@@ -53,34 +66,7 @@ const CreateForumPost: React.FC<CreateForumPostProps> = ({ onNavigate, user }) =
         }
     };
 
-    if (!user) {
-        return (
-            <div className="min-h-screen bg-gray-950 text-white p-6 pt-24 flex items-center justify-center relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-blue-900/10 to-transparent pointer-events-none z-0"></div>
-                <div className="w-full max-w-md relative z-10 text-center">
-                    <div className="bg-gray-900/50 backdrop-blur-xl border border-gray-800 rounded-3xl p-10 shadow-2xl flex flex-col items-center">
-                        <div className="w-20 h-20 bg-gray-800 rounded-full flex items-center justify-center mb-6 text-gray-500">
-                            <Lock size={40} />
-                        </div>
-                        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-500 mb-4">Login Required</h1>
-                        <p className="text-gray-400 mb-8">You must be logged in to start a discussion or ask a question.</p>
-                        <div className="flex gap-4 w-full">
-                            <button
-                                onClick={() => onNavigate('community')}
-                                className="flex-1 bg-gray-800 hover:bg-gray-700 text-white py-3 rounded-xl font-bold transition-all"
-                            >
-                                Back
-                            </button>
-                            {/* Assuming there's a way to trigger login modal or navigate to login, user passed 'community-create' so maybe just back to store or login? 
-                                Ideally onLogout triggers login view in main app, but here we just encourage them to login via sidebar/header which is not in this view.
-                                We will just provide a 'Back' button for now as the main layout handles login.
-                            */}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    // Guest Allowed - Login Check Removed
 
     return (
         <div className="min-h-screen bg-gray-950 text-white p-6 pt-24 flex items-center justify-center relative overflow-hidden">

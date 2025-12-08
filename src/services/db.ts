@@ -539,6 +539,18 @@ class DatabaseAdapter {
         }
         return await res.json();
     }
+    async toggleLikeForumPost(id: string, userId: string) {
+        const res = await fetch(`${this.apiUrl}/forum/${id}/like`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId })
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || "Failed to toggle like");
+        }
+        return await res.json();
+    }
 }
 
 export const db = new DatabaseAdapter();

@@ -557,28 +557,54 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                             <div className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
                                 <div className="bg-[#050505] w-full h-full rounded-none md:rounded-2xl border border-gray-800 flex flex-col md:flex-row overflow-hidden shadow-2xl">
                                     {/* Form */}
-                                    <div className="w-full md:w-[35%] p-6 md:p-8 overflow-y-auto border-b md:border-b-0 md:border-r border-gray-800 custom-scrollbar bg-gray-900/50">
+                                    <div className="w-full md:w-[60%] p-6 md:p-8 overflow-y-auto border-b md:border-b-0 md:border-r border-gray-800 custom-scrollbar bg-gray-900/50">
                                         <h2 className="text-2xl font-bold mb-6 text-white flex items-center gap-3">
                                             <i className="fa-solid fa-pen-to-square text-violet-500"></i>
                                             Edit Product
                                         </h2>
                                         <div className="space-y-6">
-                                            <div className="space-y-1">
-                                                <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Product Title</label>
-                                                <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none transition" value={editingProduct.title} onChange={e => setEditingProduct({ ...editingProduct, title: e.target.value })} />
+                                            <div className="space-y-2">
+                                                <label className="text-xs text-gray-400 font-bold uppercase tracking-wider ml-1">Product Title</label>
+                                                <input
+                                                    className="w-full bg-[#0a0a0c] border border-gray-800 rounded-xl p-4 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder:text-gray-700"
+                                                    value={editingProduct.title}
+                                                    onChange={e => setEditingProduct({ ...editingProduct, title: e.target.value })}
+                                                    placeholder="Enter product title..."
+                                                />
                                             </div>
-                                            <div className="space-y-1">
-                                                <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Description</label>
-                                                <textarea className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none h-32 transition resize-none" value={editingProduct.description} onChange={e => setEditingProduct({ ...editingProduct, description: e.target.value })} />
+                                            <div className="space-y-2">
+                                                <label className="text-xs text-gray-400 font-bold uppercase tracking-wider ml-1">Description</label>
+                                                <textarea
+                                                    className="w-full bg-[#0a0a0c] border border-gray-800 rounded-xl p-4 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none h-40 transition-all resize-none placeholder:text-gray-700 leading-relaxed"
+                                                    value={editingProduct.description}
+                                                    onChange={e => setEditingProduct({ ...editingProduct, description: e.target.value })}
+                                                    placeholder="Detailed description of the product..."
+                                                />
                                             </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Price (INR)</label>
-                                                    <input type="number" className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none transition" value={editingProduct.priceInr} onChange={e => setEditingProduct({ ...editingProduct, priceInr: parseInt(e.target.value) })} />
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                                <div className="space-y-2">
+                                                    <label className="text-xs text-gray-400 font-bold uppercase tracking-wider ml-1">Price (INR)</label>
+                                                    <div className="relative">
+                                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-mono">₹</span>
+                                                        <input
+                                                            type="number"
+                                                            className="w-full bg-[#0a0a0c] border border-gray-800 rounded-xl p-4 pl-10 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                                                            value={editingProduct.priceInr}
+                                                            onChange={e => setEditingProduct({ ...editingProduct, priceInr: parseInt(e.target.value) })}
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Price (Owo)</label>
-                                                    <input type="number" className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none transition" value={editingProduct.priceOwo} onChange={e => setEditingProduct({ ...editingProduct, priceOwo: parseInt(e.target.value) })} />
+                                                <div className="space-y-2">
+                                                    <label className="text-xs text-gray-400 font-bold uppercase tracking-wider ml-1">Price (Owo)</label>
+                                                    <div className="relative">
+                                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-mono">Ø</span>
+                                                        <input
+                                                            type="number"
+                                                            className="w-full bg-[#0a0a0c] border border-gray-800 rounded-xl p-4 pl-10 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                                                            value={editingProduct.priceOwo}
+                                                            onChange={e => setEditingProduct({ ...editingProduct, priceOwo: parseInt(e.target.value) })}
+                                                        />
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-4">
@@ -715,9 +741,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                         </div>
                                     </div>
                                     {/* Preview */}
-                                    <div className="w-full md:w-[65%] relative bg-[#0a0a0a] flex flex-col h-full">
-                                        <div className="absolute top-4 right-4 z-50 bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-full border border-white/10 text-xs font-bold uppercase tracking-wider animate-pulse pointer-events-none">
-                                            Live Preview
+                                    <div className="w-full md:w-[40%] relative bg-[#0a0a0a] flex flex-col h-full hidden md:flex">
+                                        <div className="absolute top-4 right-4 z-50 bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-full border border-white/10 text-xs font-bold uppercase tracking-wider animate-pulse pointer-events-none shadow-lg">
+                                            Live Preview (Small)
                                         </div>
                                         <div className="flex-1 overflow-hidden relative">
                                             <ProductDetail
@@ -1369,7 +1395,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-xs text-gray-500 font-bold uppercase">Allowed Email Domains (Comma Separated)</label>
-                                        <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-violet-500 outline-none" placeholder="e.g. gmail.com, yahoo.com" value={settings.allowedDomains.join(", ")} onChange={e => setSettings({ ...settings, allowedDomains: e.target.value.split(',').map(s => s.trim()).filter(s => s) })} />
+                                        <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-violet-500 outline-none" placeholder="e.g. gmail.com, yahoo.com" value={settings.allowedDomains?.join(", ") || ""} onChange={e => setSettings({ ...settings, allowedDomains: e.target.value.split(',').map(s => s.trim()).filter(s => s) })} />
                                     </div>
                                 </div>
 
@@ -1380,6 +1406,16 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                     </div>
                                     <button onClick={() => setSettings({ ...settings, maintenanceMode: !settings.maintenanceMode })} className={`w-14 h-8 rounded-full relative transition-colors ${settings.maintenanceMode ? 'bg-violet-600' : 'bg-gray-700'}`}>
                                         <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${settings.maintenanceMode ? 'left-7' : 'left-1'}`}></div>
+                                    </button>
+                                </div>
+
+                                <div className="bg-gray-900 border border-gray-800 p-6 rounded-3xl flex items-center justify-between col-span-2">
+                                    <div>
+                                        <h3 className="font-bold text-white text-lg">Forum Creation</h3>
+                                        <p className="text-sm text-gray-500">Allow users to create new forum posts.</p>
+                                    </div>
+                                    <button onClick={() => setSettings({ ...settings, forumCreationEnabled: settings.forumCreationEnabled === undefined ? true : !settings.forumCreationEnabled })} className={`w-14 h-8 rounded-full relative transition-colors ${settings.forumCreationEnabled !== false ? 'bg-violet-600' : 'bg-gray-700'}`}>
+                                        <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${settings.forumCreationEnabled !== false ? 'left-7' : 'left-1'}`}></div>
                                     </button>
                                 </div>
 

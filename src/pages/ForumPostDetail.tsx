@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../services/db';
 import { ForumPost, User } from '../types';
-import { ArrowLeft, Send, MessageSquare, User as UserIcon, Calendar, Clock, Tag } from 'lucide-react';
+import { ArrowLeft, Send, MessageSquare, User as UserIcon, Calendar, Clock, Tag, Lock } from 'lucide-react';
 
 interface ForumPostDetailProps {
     postId: string;
@@ -13,7 +13,6 @@ const ForumPostDetail: React.FC<ForumPostDetailProps> = ({ postId, onNavigate, u
     const [post, setPost] = useState<ForumPost | null>(null);
     const [loading, setLoading] = useState(true);
     const [replyContent, setReplyContent] = useState('');
-    const [guestName, setGuestName] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
 
@@ -32,22 +31,18 @@ const ForumPostDetail: React.FC<ForumPostDetailProps> = ({ postId, onNavigate, u
         e.preventDefault();
         if (!replyContent.trim()) return;
 
-        if (!user && !guestName.trim()) {
-            setError("Please enter your name to reply.");
-            return;
-        }
+        // Guest allowed to reply
 
         setSubmitting(true);
         try {
             await db.addForumReply(postId, {
                 content: replyContent,
-                author: {
-                    username: user?.username || guestName,
-                    userId: user?.userId
-                }
+                author: user ? {
+                    userId: user.userId,
+                    username: user.username
+                } : undefined
             });
             setReplyContent('');
-            setGuestName('');
             loadPost(); // Refresh to show new reply
         } catch (err: any) {
             setError(err.message || "Failed to post reply.");
@@ -175,27 +170,14 @@ const ForumPostDetail: React.FC<ForumPostDetailProps> = ({ postId, onNavigate, u
                         </div>
                     )}
 
+                    {/* Reply Form is now available for everyone */}
                     <form onSubmit={handleReply}>
-                        {!user && (
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-400 mb-2">Your Name</label>
-                                <input
-                                    type="text"
-                                    value={guestName}
-                                    onChange={e => setGuestName(e.target.value)}
-                                    className="w-full md:w-1/2 bg-gray-950 border border-gray-700 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                                    placeholder="Enter your name"
-                                    required
-                                />
-                            </div>
-                        )}
-
                         <div className="mb-4">
                             <textarea
                                 value={replyContent}
                                 onChange={e => setReplyContent(e.target.value)}
                                 className="w-full bg-gray-950 border border-gray-700 rounded-xl p-4 min-h-[120px] focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-y placeholder:text-gray-600"
-                                placeholder="Write your reply here..."
+                                placeholder={user ? "Write your reply here..." : "Write your reply as Guest..."}
                                 required
                             />
                         </div>

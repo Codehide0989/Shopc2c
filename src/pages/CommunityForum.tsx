@@ -10,7 +10,7 @@ interface CommunityForumProps {
     onLogout?: () => void;
 }
 
-const CommunityForum: React.FC<CommunityForumProps> = ({ onNavigate, user }) => {
+const CommunityForum: React.FC<CommunityForumProps> = ({ onNavigate, user, settings }) => {
     const [posts, setPosts] = useState<ForumPost[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -23,6 +23,36 @@ const CommunityForum: React.FC<CommunityForumProps> = ({ onNavigate, user }) => 
         const data = await db.getForumPosts();
         setPosts(data);
         setLoading(false);
+    };
+
+    const handleLike = async (post: ForumPost) => {
+        if (!user) {
+            onNavigate('login');
+            return;
+        }
+        // Optimistic Update
+        const isLiked = post.likedBy?.includes(user.userId);
+        const updatedPosts = posts.map(p => {
+            if (p.id === post.id) {
+                return {
+                    ...p,
+                    likes: isLiked ? p.likes - 1 : p.likes + 1,
+                    likedBy: isLiked
+                        ? p.likedBy?.filter(id => id !== user.userId)
+                        : [...(p.likedBy || []), user.userId]
+                };
+            }
+            return p;
+        });
+        setPosts(updatedPosts);
+
+        try {
+            await db.toggleLikeForumPost(post.id, user.userId);
+        } catch (err) {
+            console.error(err);
+            // Revert on failure
+            loadPosts();
+        }
     };
 
     const filteredPosts = posts.filter(post =>
@@ -56,7 +86,13 @@ const CommunityForum: React.FC<CommunityForumProps> = ({ onNavigate, user }) => 
                     </div>
 
                     <button
-                        onClick={() => onNavigate('community-create')}
+                        onClick={() => {
+                            if (!user) {
+                                onNavigate('login');
+                                return;
+                            }
+                            onNavigate('community-create');
+                        }}
                         className="group relative px-8 py-4 bg-white text-black rounded-2xl font-bold text-lg shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] transition-all hover:-translate-y-1 active:scale-95 overflow-hidden"
                     >
                         <div className="absolute inset-0 bg-gradient-to-r from-blue-400 via-violet-400 to-fuchsia-400 opacity-20 group-hover:opacity-30 transition-opacity"></div>
@@ -93,14 +129,15 @@ const CommunityForum: React.FC<CommunityForumProps> = ({ onNavigate, user }) => 
                         ))}
                     </div>
                 ) : filteredPosts.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-32 bg-gray-900/20 backdrop-blur-sm rounded-3xl border border-gray-800/50 border-dashed">
-                        <div className="w-24 h-24 bg-gradient-to-br from-gray-800 to-gray-900 rounded-full flex items-center justify-center mb-8 shadow-inner ring-1 ring-white/10">
-                            <MessageSquare size={40} className="text-gray-600" />
+                    <div className="flex flex-col items-center justify-center py-32 bg-[#13131a]/60 backdrop-blur-xl rounded-3xl border border-white/5 border-dashed relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent opacity-50"></div>
+                        <div className="w-24 h-24 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-full flex items-center justify-center mb-8 shadow-[0_0_30px_rgba(59,130,246,0.1)] ring-1 ring-white/10 group-hover:scale-110 transition-transform duration-500">
+                            <MessageSquare size={40} className="text-blue-400" />
                         </div>
-                        <h3 className="text-2xl font-bold text-white mb-3">No discussions found</h3>
-                        <p className="text-gray-500 max-w-md text-center text-lg">
-                            We couldn't find anything matching "{searchTerm}". <br className="hidden md:block" />
-                            Why not start a new topic?
+                        <h3 className="text-3xl font-bold text-white mb-3 relative z-10">No discussions found</h3>
+                        <p className="text-gray-400 max-w-md text-center text-lg relative z-10 font-light">
+                            We couldn't find anything matching "<span className="text-white font-medium">{searchTerm}</span>". <br className="hidden md:block" />
+                            Be the first to start this conversation!
                         </p>
                     </div>
                 ) : (
@@ -109,40 +146,61 @@ const CommunityForum: React.FC<CommunityForumProps> = ({ onNavigate, user }) => 
                             <div
                                 key={post.id}
                                 onClick={() => onNavigate('community-post', post.id)}
-                                className="group relative bg-[#13131a] border border-white/5 hover:border-white/10 rounded-3xl p-6 md:p-8 cursor-pointer transition-all duration-300 hover:shadow-2xl hover:shadow-blue-900/10 hover:-translate-y-1 overflow-hidden"
+                                className="group relative bg-[#13131a]/80 backdrop-blur-xl border border-white/5 hover:border-blue-500/30 rounded-3xl p-6 md:p-8 cursor-pointer transition-all duration-300 hover:shadow-[0_0_40px_rgba(59,130,246,0.1)] hover:-translate-y-1 overflow-hidden"
                                 style={{ animationDelay: `${idx * 50}ms` }}
                             >
-                                {/* Hover Glow */}
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-500/10 to-transparent rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
+                                {/* Hover Glow Gradient */}
+                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+
+                                {/* Top Glow Line */}
+                                <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-700"></div>
 
                                 <div className="flex flex-col md:flex-row gap-6 md:items-start relative z-10">
-                                    {/* Vote Counter (Visual Only for now) */}
-                                    <div className="hidden md:flex flex-col items-center gap-1 bg-white/5 rounded-xl p-2 border border-white/5 min-w-[60px]">
-                                        <ThumbsUp size={18} className="text-gray-400 group-hover:text-blue-400 transition-colors" />
-                                        <span className="font-bold text-white">{post.likes}</span>
+                                    {/* Vote Counter */}
+                                    <div
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleLike(post);
+                                        }}
+                                        className={`hidden md:flex flex-col items-center gap-1 rounded-2xl p-3 border min-w-[70px] transition-colors z-20 cursor-pointer ${post.likedBy?.includes(user?.userId || '')
+                                            ? 'bg-blue-500/20 border-blue-500/50'
+                                            : 'bg-gray-900/50 border-white/5 group-hover:border-blue-500/20'
+                                            }`}
+                                    >
+                                        <ThumbsUp
+                                            size={20}
+                                            className={`transition-colors ${post.likedBy?.includes(user?.userId || '')
+                                                ? 'text-blue-400 fill-blue-400/20'
+                                                : 'text-gray-500 group-hover:text-blue-400'
+                                                }`}
+                                        />
+                                        <span className={`font-bold text-lg ${post.likedBy?.includes(user?.userId || '') ? 'text-blue-100' : 'text-white'}`}>
+                                            {post.likes}
+                                        </span>
                                     </div>
 
                                     <div className="flex-1">
                                         <div className="flex flex-wrap items-center gap-3 mb-4">
                                             {post.tags.map((tag, i) => (
-                                                <span key={i} className="px-3 py-1 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 text-xs font-bold uppercase tracking-wider rounded-lg border border-blue-500/20 transition-colors">
-                                                    #{tag}
-                                                </span>
+                                                <div key={i} className="flex items-center gap-1 px-3 py-1 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 text-xs font-bold uppercase tracking-wider rounded-lg border border-blue-500/20 transition-colors">
+                                                    <Tag size={10} />
+                                                    {tag}
+                                                </div>
                                             ))}
                                             <span className="text-gray-600 text-xs">•</span>
-                                            <span className="text-gray-500 text-xs font-medium">{new Date(post.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                                            <span className="text-gray-500 text-xs font-medium">{new Date(post.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                                         </div>
 
-                                        <h3 className="text-2xl font-bold mb-3 text-white group-hover:text-blue-400 transition-colors line-clamp-2 leading-tight">
+                                        <h3 className="text-2xl font-bold mb-3 text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-400 group-hover:to-fuchsia-400 transition-all line-clamp-2 leading-tight">
                                             {post.title}
                                         </h3>
-                                        <p className="text-gray-400 line-clamp-2 mb-6 leading-relaxed text-base font-light border-l-2 border-gray-800 pl-4">
+                                        <p className="text-gray-400 line-clamp-2 mb-6 leading-relaxed text-base font-light pl-1">
                                             {post.content}
                                         </p>
 
-                                        <div className="flex items-center justify-between border-t border-white/5 pt-4 mt-auto">
+                                        <div className="flex items-center justify-between pt-4 mt-auto border-t border-white/5">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-xs font-bold text-white shadow-inner">
+                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-xs font-bold text-white shadow-inner ring-1 ring-white/10">
                                                     {post.author.username[0].toUpperCase()}
                                                 </div>
                                                 <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">
@@ -151,7 +209,7 @@ const CommunityForum: React.FC<CommunityForumProps> = ({ onNavigate, user }) => 
                                             </div>
 
                                             <div className="flex items-center gap-4 text-sm text-gray-500">
-                                                <div className="flex items-center gap-2 group-hover:text-blue-400 transition-colors">
+                                                <div className="flex items-center gap-2 group-hover:text-blue-400 transition-colors bg-white/5 px-3 py-1.5 rounded-lg">
                                                     <MessageSquare size={16} />
                                                     <span className="font-medium">{post.replies?.length || 0} <span className="hidden sm:inline">Comments</span></span>
                                                 </div>
@@ -160,6 +218,7 @@ const CommunityForum: React.FC<CommunityForumProps> = ({ onNavigate, user }) => 
                                     </div>
                                 </div>
                             </div>
+
                         ))}
                     </div>
                 )}

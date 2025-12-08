@@ -145,7 +145,7 @@ const App = () => {
                     if (id) setSelectedPostId(id);
                     setView(v);
                 }} onLogout={handleLogout} />}
-                {view === "community-create" && <CreateForumPost onNavigate={setView} user={user} />}
+                {view === "community-create" && <CreateForumPost onNavigate={setView} user={user} settings={settings} />}
                 {view === "community-post" && selectedPostId && <ForumPostDetail postId={selectedPostId} onNavigate={setView} user={user} />}
                 {view === "profile" && user && <Profile user={user} />}
                 {view === "chat" && <GlobalChat user={user || (isAdmin ? { userId: 'admin', username: 'Administrator', email: 'admin@shopc2c.io', isBanned: false, createdAt: 0, _id: 'admin', password: '' } : null)} onLogout={handleLogout} />}

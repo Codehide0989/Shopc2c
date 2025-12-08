@@ -104,6 +104,7 @@ export interface AppSettings {
     maintenanceMode: boolean;
     chatEnabled: boolean;
     communityLink?: string;
+    forumCreationEnabled?: boolean;
     allowedDomains?: string[];
 }
 
