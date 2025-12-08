@@ -134,10 +134,16 @@ class DatabaseAdapter {
     }
 
     async addReview(review: Omit<Review, "id" | "timestamp" | "_id" | "status">) {
+        const newReview = {
+            ...review,
+            id: `rev_${generateId()}`,
+            timestamp: Date.now(),
+            status: 'pending'
+        };
         await fetch(`${this.apiUrl}/reviews`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(review)
+            body: JSON.stringify(newReview)
         });
     }
 

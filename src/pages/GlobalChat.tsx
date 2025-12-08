@@ -25,6 +25,8 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ user: initialUser }) => {
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [connectedUsers, setConnectedUsers] = useState<ConnectedUser[]>([]);
     const [showUsersSidebar, setShowUsersSidebar] = useState(false); // Mobile toggle
+    const [showScrollButton, setShowScrollButton] = useState(false);
+    const scrollViewportRef = useRef<HTMLDivElement>(null);
 
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,6 +43,14 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ user: initialUser }) => {
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    };
+
+    const handleScroll = () => {
+        if (scrollViewportRef.current) {
+            const { scrollTop, scrollHeight, clientHeight } = scrollViewportRef.current;
+            const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+            setShowScrollButton(!isNearBottom);
+        }
     };
 
     // Initial Load and Socket Setup
@@ -281,7 +291,11 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ user: initialUser }) => {
                     </div>
 
                     {/* Messages */}
-                    <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6 custom-scrollbar scroll-smooth">
+                    <div
+                        ref={scrollViewportRef}
+                        onScroll={handleScroll}
+                        className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6 custom-scrollbar scroll-smooth relative"
+                    >
                         {isBanned ? (
                             <div className="h-full flex flex-col items-center justify-center text-center">
                                 <div className="w-24 h-24 rounded-full bg-red-500/10 flex items-center justify-center mb-6 animate-pulse">
@@ -300,6 +314,7 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ user: initialUser }) => {
                             messages.map((msg, index) => {
                                 const isMe = currentUser && msg.userId === currentUser.userId;
                                 const showAvatar = index === 0 || messages[index - 1].userId !== msg.userId || (msg.timestamp - messages[index - 1].timestamp > 60000);
+                                const isRecent = Date.now() - msg.timestamp < 60000; // Less than 1 minute ago
 
                                 return (
                                     <div key={msg.id} className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} group animate-in fade-in slide-in-from-bottom-2 duration-300`}>
@@ -362,9 +377,20 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ user: initialUser }) => {
                                         </div>
                                     </div>
                                 );
+
                             })
                         )}
                         <div ref={messagesEndRef} />
+
+                        {/* Scroll to Bottom Button */}
+                        <div className={`fixed bottom-24 right-6 md:right-80 z-30 transition-all duration-300 ${showScrollButton ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 pointer-events-none'}`}>
+                            <button
+                                onClick={scrollToBottom}
+                                className="w-10 h-10 rounded-full bg-violet-600 text-white shadow-lg shadow-violet-600/30 hover:bg-violet-500 hover:scale-110 active:scale-95 transition flex items-center justify-center"
+                            >
+                                <i className="fa-solid fa-arrow-down"></i>
+                            </button>
+                        </div>
                     </div>
 
                     {/* Input Area */}
@@ -403,7 +429,7 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ user: initialUser }) => {
                                         <button
                                             type="submit"
                                             disabled={!newMessage.trim() && !imagePreview}
-                                            className="p-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-xl shadow-lg shadow-fuchsia-900/20 hover:shadow-fuchsia-600/40 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                                            className="p-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-xl shadow-lg shadow-fuchsia-900/20 hover:shadow-fuchsia-600/40 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none touch-manipulation"
                                         >
                                             <i className="fa-solid fa-paper-plane"></i>
                                         </button>
@@ -497,32 +523,34 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ user: initialUser }) => {
                         </div>
                     </div>
                 </aside>
-            </main>
+            </main >
 
             {/* Banned Modal */}
-            {showBannedModal && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-                    <div className="bg-[#111] border border-gray-800 rounded-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[70vh] shadow-2xl">
-                        <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/50">
-                            <h3 className="font-bold text-white">Banned Users</h3>
-                            <button onClick={() => setShowBannedModal(false)} className="text-gray-500 hover:text-white"><i className="fa-solid fa-xmark"></i></button>
-                        </div>
-                        <div className="p-4 overflow-y-auto flex-1 custom-scrollbar">
-                            {bannedUsers.length === 0 ? <p className="text-center text-gray-600 text-sm py-8">No banned users.</p> : (
-                                <ul className="space-y-2">
-                                    {bannedUsers.map(u => (
-                                        <li key={u.userId} className="flex justify-between items-center p-3 bg-white/5 rounded-xl hover:bg-white/10 transition">
-                                            <span className="text-gray-300 text-sm font-bold">{u.username}</span>
-                                            <button onClick={() => { handleAdminAction('unban', u.userId); }} className="text-xs text-emerald-400 hover:bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 font-bold transition">Unban</button>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
+            {
+                showBannedModal && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+                        <div className="bg-[#111] border border-gray-800 rounded-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[70vh] shadow-2xl">
+                            <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-900/50">
+                                <h3 className="font-bold text-white">Banned Users</h3>
+                                <button onClick={() => setShowBannedModal(false)} className="text-gray-500 hover:text-white"><i className="fa-solid fa-xmark"></i></button>
+                            </div>
+                            <div className="p-4 overflow-y-auto flex-1 custom-scrollbar">
+                                {bannedUsers.length === 0 ? <p className="text-center text-gray-600 text-sm py-8">No banned users.</p> : (
+                                    <ul className="space-y-2">
+                                        {bannedUsers.map(u => (
+                                            <li key={u.userId} className="flex justify-between items-center p-3 bg-white/5 rounded-xl hover:bg-white/10 transition">
+                                                <span className="text-gray-300 text-sm font-bold">{u.username}</span>
+                                                <button onClick={() => { handleAdminAction('unban', u.userId); }} className="text-xs text-emerald-400 hover:bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 font-bold transition">Unban</button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 

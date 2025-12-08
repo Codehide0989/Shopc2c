@@ -58,3 +58,7 @@ h1, h2, h3, .font-display {
 ::-webkit-scrollbar-thumb:hover {
   background: #9333ea; 
 }
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
