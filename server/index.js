@@ -5,7 +5,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { User, Product, Category, Review, ChatMessage, AppSettings, Permission, Coupon, ServerLog, ForumPost } from './models/index.js';
+import { User, Product, Category, Review, ChatMessage, AppSettings, Permission, Coupon, ServerLog, ForumPost, C2CIde } from './models/index.js';
 
 process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err);
@@ -342,6 +342,11 @@ app.get('/api/reviews', async (req, res) => {
 
 app.post('/api/reviews', async (req, res) => {
     try {
+        const { productId, userId } = req.body;
+        const existing = await Review.findOne({ productId, userId });
+        if (existing) {
+            return res.status(400).json({ error: "You have already reviewed this product." });
+        }
         const review = new Review(req.body);
         await review.save();
         res.status(201).json(review);
@@ -353,8 +358,12 @@ app.post('/api/reviews', async (req, res) => {
 app.patch('/api/reviews/:id/status', async (req, res) => {
     try {
         const { status } = req.body;
-        const coupons = await Coupon.find();
-        res.json(coupons);
+        const review = await Review.findOneAndUpdate(
+            { id: req.params.id },
+            { status },
+            { new: true }
+        );
+        res.json(review);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -763,6 +772,44 @@ app.post('/api/forum/:id/reply', async (req, res) => {
         }
 
         res.json(post);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// C2C IDE
+app.get('/api/c2cide', async (req, res) => {
+    try {
+        const ides = await C2CIde.find().sort({ createdAt: -1 });
+        res.json(ides);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/c2cide', async (req, res) => {
+    try {
+        const { title, url, imageUrl, timerDuration } = req.body;
+        const newIde = new C2CIde({
+            id: `ide_${randomUUID()}`,
+            title,
+            url,
+            // If imageUrl is empty/null, model default will take over if we don't pass it, 
+            // but here we are passing it. Let's ensure undefined if empty string.
+            imageUrl: imageUrl || undefined,
+            timerDuration
+        });
+        await newIde.save();
+        res.status(201).json(newIde);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/c2cide/:id', async (req, res) => {
+    try {
+        await C2CIde.findOneAndDelete({ id: req.params.id });
+        res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

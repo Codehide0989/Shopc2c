@@ -14,7 +14,7 @@ interface AdminDashboardProps {
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackToStore }) => {
     // Admin is always admin here, no "isStaff" check needed for restricted view
-    const [activeTab, setActiveTab] = useState<"overview" | "products" | "categories" | "users" | "access" | "reviews" | "orders" | "coupons" | "settings" | "chat" | "forum">("overview");
+    const [activeTab, setActiveTab] = useState<"overview" | "products" | "categories" | "users" | "access" | "reviews" | "orders" | "coupons" | "settings" | "chat" | "forum" | "c2cide">("overview");
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [permissions, setPermissions] = useState<UserPermission[]>([]);
@@ -39,6 +39,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
     const [forumPosts, setForumPosts] = useState<ForumPost[]>([]);
     const [forumView, setForumView] = useState<'pending' | 'all'>('pending');
     const [bannedUsers, setBannedUsers] = useState<User[]>([]);
+    const [c2cIdes, setC2CIdes] = useState<any[]>([]);
 
     // Edit/Create State
     const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
@@ -58,7 +59,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
     const loadData = async () => {
         try {
             const [
-                prods, cats, usrs, perms, revs, ords, cpn, sett, msgs, fPosts
+                prods, cats, usrs, perms, revs, ords, cpn, sett, msgs, fPosts, ides
             ] = await Promise.all([
                 db.getProducts(),
                 db.getCategories(),
@@ -69,7 +70,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                 db.getCoupons(),
                 db.getSettings(),
                 db.getMessages(),
-                db.getPendingForumPosts()
+                db.getPendingForumPosts(),
+                db.getC2CIdeLinks()
             ]);
 
             setProducts(prods);
@@ -83,6 +85,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
             setChatMessages(msgs);
             setForumPosts(fPosts);
             setBannedUsers(usrs.filter(u => u.isBanned));
+            setC2CIdes(ides);
         } catch (error) {
             console.error("Failed to load admin data", error);
         }
@@ -321,6 +324,30 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
         }
     };
 
+    // IDE Actions
+    const handleAddIde = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const form = e.target as HTMLFormElement;
+        const title = (form.elements.namedItem('title') as HTMLInputElement).value;
+        const url = (form.elements.namedItem('url') as HTMLInputElement).value;
+        let imageUrl = (form.elements.namedItem('imageUrl') as HTMLInputElement).value;
+        const timerDuration = parseInt((form.elements.namedItem('timerDuration') as HTMLInputElement).value);
+
+        if (!imageUrl || imageUrl.trim() === '') {
+            imageUrl = `https://image.thum.io/get/width/600/crop/800/${url}`;
+        }
+
+        await db.saveC2CIdeLink({ title, url, imageUrl, timerDuration });
+        form.reset();
+        refresh();
+    };
+
+    const handleDeleteIde = async (id: string) => {
+        if (!confirm("Delete this environment?")) return;
+        await db.deleteC2CIdeLink(id);
+        refresh();
+    };
+
     return (
         <div className="min-h-screen bg-gray-950 flex text-gray-100 font-sans relative">
             {/* Background Ambience */}
@@ -349,7 +376,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                 <nav className="p-4 space-y-1.5 overflow-y-auto flex-1 custom-scrollbar">
                     <div className="mb-8">
                         {!collapsed && <p className="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 animate-in fade-in">Dashboard</p>}
-                        {(['overview', 'products', 'categories', 'users', 'access', 'orders', 'reviews', 'coupons', 'chat', 'forum'] as const).map(tab => (
+                        {(['overview', 'products', 'categories', 'users', 'access', 'orders', 'reviews', 'coupons', 'chat', 'forum', 'c2cide'] as const).map(tab => (
                             <button
                                 key={tab}
                                 onClick={() => { setActiveTab(tab); setSidebarOpen(false); }}
@@ -368,7 +395,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                                         tab === 'orders' ? 'fa-money-bill-transfer' :
                                                             tab === 'reviews' ? 'fa-star' :
                                                                 tab === 'coupons' ? 'fa-ticket' :
-                                                                    tab === 'forum' ? 'fa-comments' : 'fa-message'
+                                                                    tab === 'forum' ? 'fa-comments' :
+                                                                        tab === 'c2cide' ? 'fa-code' : 'fa-message'
                                         }`}></i>
                                 </span>
                                 {!collapsed && <span className="capitalize font-medium animate-in fade-in slide-in-from-left-2 duration-300">{tab}</span>}
@@ -790,6 +818,85 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                                     <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                         <button onClick={() => setEditingProduct(p)} className="p-2.5 bg-gray-800 text-blue-400 hover:bg-blue-500 hover:text-white rounded-lg transition"><i className="fa-solid fa-pencil"></i></button>
                                         <button onClick={() => handleDeleteProduct(p.id)} className="p-2.5 bg-gray-800 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition"><i className="fa-solid fa-trash"></i></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'c2cide' && (
+                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="glass-panel p-8 rounded-2xl border border-gray-800 bg-[#0a0a0a]/80 backdrop-blur-xl">
+                            <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                                <i className="fa-solid fa-plus-circle text-violet-500"></i> Add New Environment
+                            </h2>
+                            <form onSubmit={(e) => {
+                                e.preventDefault();
+                                handleAddIde(e);
+                                // Reset form logic is handled in handleAddIde or we can do it here if we switch to controlled components
+                            }} className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Title</label>
+                                        <input name="title" required className="w-full bg-black/50 border border-gray-800 rounded-xl px-4 py-3 focus:border-violet-500 outline-none text-white transition" placeholder="e.g. Node.js Dev" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Timer (Minutes)</label>
+                                        <input name="timerDuration" type="number" required defaultValue="60" className="w-full bg-black/50 border border-gray-800 rounded-xl px-4 py-3 focus:border-violet-500 outline-none text-white transition" />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Environment URL (Must support embedding)</label>
+                                    <input name="url" type="url" required className="w-full bg-black/50 border border-gray-800 rounded-xl px-4 py-3 focus:border-violet-500 outline-none text-white transition" placeholder="https://..." />
+                                </div>
+                                <div className="flex gap-4 items-start">
+                                    <div className="flex-1">
+                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Preview Image URL</label>
+                                        <input
+                                            name="imageUrl"
+                                            type="url"
+                                            // Removed required
+                                            className="w-full bg-black/50 border border-gray-800 rounded-xl px-4 py-3 focus:border-violet-500 outline-none text-white transition"
+                                            placeholder="https://... (Optional)"
+                                            onChange={(e) => {
+                                                // Live preview logic could go here if we had state, 
+                                                // but we can also just let the user type and submit. 
+                                                // For now, let's keep it simple as requested.
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="w-24 h-24 bg-gray-900 rounded-xl border border-gray-800 flex items-center justify-center overflow-hidden shrink-0 mt-6">
+                                        <i className="fa-regular fa-image text-2xl text-gray-700"></i>
+                                        {/* In a controlled component we would show the image here */}
+                                    </div>
+                                </div>
+                                <div className="pt-2">
+                                    <button type="submit" className="px-8 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-bold shadow-lg shadow-violet-900/20 transition transform hover:-translate-y-1">
+                                        Add Environment
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {c2cIdes.map(ide => (
+                                <div key={ide.id} className="glass-panel p-4 rounded-2xl border border-gray-800 bg-[#0a0a0a]/80 backdrop-blur-xl group relative overflow-hidden">
+                                    <div className="aspect-video rounded-xl overflow-hidden mb-4 relative">
+                                        <img src={ide.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition duration-700" />
+                                        <div className="absolute inset-0 bg-black/50 group-hover:bg-black/20 transition"></div>
+                                    </div>
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <h3 className="font-bold text-white text-lg">{ide.title}</h3>
+                                            <p className="text-gray-500 text-xs font-mono">{ide.timerDuration} mins limit</p>
+                                        </div>
+                                        <button onClick={() => handleDeleteIde(ide.id)} className="w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white flex items-center justify-center transition">
+                                            <i className="fa-solid fa-trash"></i>
+                                        </button>
+                                    </div>
+                                    <div className="mt-4 pt-4 border-t border-gray-800">
+                                        <p className="text-gray-500 text-xs truncate font-mono">{ide.url}</p>
                                     </div>
                                 </div>
                             ))}

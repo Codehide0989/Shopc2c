@@ -46,7 +46,7 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, activeView, isAdmin, user, 
 
                     {/* Desktop Navigation */}
                     <div className="hidden md:flex items-center space-x-1">
-                        {['home', 'about', 'contact', 'community'].map((view) => (
+                        {['home', 'about', 'contact', 'community', 'c2c-ide'].map((view) => (
                             <button
                                 key={view}
                                 onClick={() => onNavigate(view)}
@@ -97,6 +97,9 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, activeView, isAdmin, user, 
                                         </button>
                                         <button onClick={() => { onNavigate("community"); setIsProfileOpen(false); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-gray-800/50 flex items-center gap-3 transition">
                                             <i className="fa-solid fa-users w-4 text-center text-blue-400"></i> Community Forum
+                                        </button>
+                                        <button onClick={() => { onNavigate("c2c-ide"); setIsProfileOpen(false); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-300 hover:text-white hover:bg-gray-800/50 flex items-center gap-3 transition">
+                                            <i className="fa-solid fa-code w-4 text-center text-pink-400"></i> C2C IDE
                                         </button>
 
                                         <div className="h-px bg-gray-800 my-2"></div>
@@ -157,6 +160,9 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, activeView, isAdmin, user, 
                             </button>
                             <button onClick={() => { onNavigate("community"); setIsOpen(false); }} className="w-full text-left px-4 py-3 text-gray-300 hover:text-white hover:bg-gray-800 rounded-xl transition flex items-center gap-3">
                                 <i className="fa-solid fa-users w-5 text-center text-blue-400"></i> Community Forum
+                            </button>
+                            <button onClick={() => { onNavigate("c2c-ide"); setIsOpen(false); }} className="w-full text-left px-4 py-3 text-gray-300 hover:text-white hover:bg-gray-800 rounded-xl transition flex items-center gap-3">
+                                <i className="fa-solid fa-code w-5 text-center text-pink-400"></i> C2C IDE
                             </button>
                         </div>
 

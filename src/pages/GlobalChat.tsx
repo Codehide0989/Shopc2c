@@ -395,7 +395,7 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ user: initialUser }) => {
 
                     {/* Input Area */}
                     {!isBanned && !isTimedOut && (
-                        <div className="p-3 md:p-6 bg-[#0a0a0a] border-t border-white/5 safe-area-bottom">
+                        <div className="p-3 md:p-6 bg-[#0a0a0a] border-t border-white/5 pb-[max(1rem,env(safe-area-inset-bottom))] sticky bottom-0 z-40">
                             {settings.chatEnabled ? (currentUser ? (
                                 <form onSubmit={handleSendMessage} className="max-w-5xl mx-auto relative group">
                                     <div className="absolute -inset-0.5 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-2xl opacity-20 group-hover:opacity-40 transition duration-500 blur"></div>
@@ -403,7 +403,7 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ user: initialUser }) => {
                                         <button
                                             type="button"
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="p-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors shrink-0"
+                                            className="p-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors shrink-0 touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                                             title="Upload Image"
                                         >
                                             <i className="fa-solid fa-image text-lg"></i>
@@ -422,14 +422,14 @@ const GlobalChat: React.FC<GlobalChatProps> = ({ user: initialUser }) => {
                                                 value={newMessage}
                                                 onChange={(e) => setNewMessage(e.target.value)}
                                                 placeholder={`Message as ${currentUser.username}...`}
-                                                className="w-full bg-transparent text-gray-200 placeholder-gray-600 focus:outline-none px-2 font-medium"
+                                                className="w-full bg-transparent text-gray-200 placeholder-gray-600 focus:outline-none px-2 font-medium text-base md:text-sm" // text-base prevents iOS zoom
                                             />
                                         </div>
 
                                         <button
                                             type="submit"
                                             disabled={!newMessage.trim() && !imagePreview}
-                                            className="p-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-xl shadow-lg shadow-fuchsia-900/20 hover:shadow-fuchsia-600/40 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none touch-manipulation"
+                                            className="p-3 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white rounded-xl shadow-lg shadow-fuchsia-900/20 hover:shadow-fuchsia-600/40 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
                                         >
                                             <i className="fa-solid fa-paper-plane"></i>
                                         </button>

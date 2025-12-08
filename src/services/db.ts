@@ -1,4 +1,4 @@
-import { User, Product, Category, UserPermission, Coupon, Review, AppSettings, AdminCreds, ChatMessage, Order, ServerLog, ForumPost } from "../types";
+import { User, Product, Category, UserPermission, Coupon, Review, AppSettings, AdminCreds, ChatMessage, Order, ServerLog, ForumPost, C2CIde } from "../types";
 import { generateId } from "../utils/helpers";
 import { DEFAULT_DISCORD_LINK, DEFAULT_HERO_IMAGE, DEFAULT_ADMIN_USER, DEFAULT_ADMIN_PASS, ENV } from "../utils/constants";
 import { io, Socket } from "socket.io-client";
@@ -557,6 +557,31 @@ class DatabaseAdapter {
             throw new Error(err.error || "Failed to toggle like");
         }
         return await res.json();
+    }
+
+    // --- C2C IDE ---
+    async getC2CIdeLinks(): Promise<C2CIde[]> {
+        try {
+            const res = await fetch(`${this.apiUrl}/c2cide`);
+            return await res.json();
+        } catch (e) {
+            return [];
+        }
+    }
+
+    async saveC2CIdeLink(ide: Omit<C2CIde, "_id" | "id">) {
+        const res = await fetch(`${this.apiUrl}/c2cide`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(ide)
+        });
+        if (!res.ok) throw new Error("Failed to save IDE link");
+    }
+
+    async deleteC2CIdeLink(id: string) {
+        await fetch(`${this.apiUrl}/c2cide/${id}`, {
+            method: 'DELETE'
+        });
     }
 }
 

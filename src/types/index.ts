@@ -149,3 +149,12 @@ export interface ForumPost {
     replies: ForumReply[];
     images?: string[];
 }
+
+export interface C2CIde {
+    _id: string;
+    id: string;
+    title: string;
+    url: string;
+    imageUrl: string;
+    timerDuration: number;
+}

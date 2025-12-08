@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+export { mongoose }; // Export shared instance
 
 const userSchema = new mongoose.Schema({
     userId: { type: String, required: true, unique: true },
@@ -123,6 +124,15 @@ const forumPostSchema = new mongoose.Schema({
     images: { type: [String], default: [] }
 });
 
+const c2cIdeSchema = new mongoose.Schema({
+    id: { type: String, required: true, unique: true },
+    title: { type: String, required: true },
+    url: { type: String, required: true },
+    imageUrl: { type: String, default: 'https://images.unsplash.com/photo-1542831371-29b0f74f9713?auto=format&fit=crop&q=80&w=1000' },
+    timerDuration: { type: Number, default: 5 },
+    createdAt: { type: Number, default: Date.now }
+});
+
 export const User = mongoose.model('User', userSchema);
 export const Product = mongoose.model('Product', productSchema);
 export const Category = mongoose.model('Category', categorySchema);
@@ -133,3 +143,4 @@ export const Permission = mongoose.model('Permission', permissionSchema);
 export const AppSettings = mongoose.model('AppSettings', appSettingsSchema);
 export const ServerLog = mongoose.model('ServerLog', serverLogSchema);
 export const ForumPost = mongoose.model('ForumPost', forumPostSchema);
+export const C2CIde = mongoose.model('C2CIde', c2cIdeSchema);

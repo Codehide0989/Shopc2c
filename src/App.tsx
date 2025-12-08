@@ -20,72 +20,51 @@ import CommunityForum from "./pages/CommunityForum";
 import CreateForumPost from "./pages/CreateForumPost";
 import ForumPostDetail from "./pages/ForumPostDetail";
 import GlobalChat from "./pages/GlobalChat";
+import C2CIdeList from "./pages/C2CIdeList";
+import C2CIdeView from "./pages/C2CIdeView";
 
 // ... (existing code)
 
-
-
 const App = () => {
+    useSecurity();
     const [view, setView] = useState("home");
     const [user, setUser] = useState<User | null>(AuthManager.getCurrentUser());
     const [isAdmin, setIsAdmin] = useState(AuthManager.isAdminLoggedIn());
-    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-    const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [settings, setSettings] = useState<AppSettings>({
         discordLink: "",
         storeName: "Shopc2c",
-        heroImage: "https://images.unsplash.com/photo-1620641788421-7a1c342ea42e?auto=format&fit=crop&q=80&w=1200",
+        heroImage: "",
         maintenanceMode: false,
-        chatEnabled: true
+        chatEnabled: true,
+        communityLink: "",
+        forumCreationEnabled: true,
+        allowedDomains: []
     });
-    const [, setTick] = useState(0);
-
-    useSecurity();
+    const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+    const [selectedIdeId, setSelectedIdeId] = useState<string | null>(null);
 
     const loadData = async () => {
-        const [prods, cats, sets] = await Promise.all([
+        const [s, p, c] = await Promise.all([
+            db.getSettings(),
             db.getProducts(),
-            db.getCategories(),
-            db.getSettings()
+            db.getCategories()
         ]);
-        setProducts(prods);
-        setCategories(cats);
-        setSettings(sets);
-
-        // Refresh User Session if logged in
-        if (user) {
-            const latestUser = await db.getLatestUser(user.userId);
-            if (latestUser) {
-                AuthManager.loginUserSession(latestUser);
-                setUser(latestUser);
-                // Update admin status if role changed
-                if (latestUser.role === 'admin' && !isAdmin) {
-                    setIsAdmin(true);
-                }
-            }
-        }
+        setSettings(s);
+        setProducts(p);
+        setCategories(c);
     };
 
     useEffect(() => {
         loadData();
-
-        const handleStorageChange = () => {
-            setTick(t => t + 1);
-        };
-        window.addEventListener("storage", handleStorageChange);
-        return () => window.removeEventListener("storage", handleStorageChange);
     }, []);
 
     const handleUserLogin = (u: User) => {
         AuthManager.loginUserSession(u);
         setUser(u);
-        if (u.role === 'staff') {
-            setView("staff");
-        } else {
-            setView("home");
-        }
+        setView("home");
     };
 
     const handleAdminLogin = () => {
@@ -95,21 +74,24 @@ const App = () => {
 
     const handleLogout = () => {
         AuthManager.logoutUser();
+        AuthManager.logoutAdmin();
         setUser(null);
-        setView("home");
+        setIsAdmin(false);
+        setView("login");
     };
 
     const handleAdminLogout = () => {
         AuthManager.logoutAdmin();
         setIsAdmin(false);
-        setView("home");
+        setView("login");
     };
 
-    const handlePurchase = () => {
+    const handlePurchase = (product: Product) => {
         if (!user) {
             setView("login");
             return;
         }
+        setSelectedProduct(product);
         setView("payment");
     };
 
@@ -121,12 +103,21 @@ const App = () => {
         if (view === "staff" && user?.role === 'staff') return <StaffDashboard user={user} onLogout={handleLogout} onBackToStore={() => setView("home")} />;
         if (view === "admin") return <Login onUserLogin={handleUserLogin} onAdminLogin={handleAdminLogin} onSwitch={() => setView("signup")} maintenanceMode={settings.maintenanceMode} />;
 
+        // Access Control for C2C IDE
+        if ((view === "c2c-ide" || view === "c2c-ide-view") && !user && !isAdmin) {
+            return <Login onUserLogin={handleUserLogin} onAdminLogin={handleAdminLogin} onSwitch={() => setView("signup")} maintenanceMode={settings.maintenanceMode} />;
+        }
+
         if (view === "login") return <Login onUserLogin={handleUserLogin} onAdminLogin={handleAdminLogin} onSwitch={() => setView("signup")} maintenanceMode={settings.maintenanceMode} />;
         if (view === "signup") return <Signup onLogin={handleUserLogin} onSwitch={() => setView("login")} />;
 
-        if (view === "product" && selectedProduct) return <ProductDetail product={selectedProduct} user={user} onBack={() => setView("home")} onPurchase={handlePurchase} />;
+        if (view === "product" && selectedProduct) return <ProductDetail product={selectedProduct} user={user} onBack={() => setView("home")} onPurchase={() => handlePurchase(selectedProduct)} />;
 
         if (view === "payment" && selectedProduct && user) return <Payment product={selectedProduct} user={user} onCancel={() => setView("product")} />;
+
+        if (view === "c2c-ide-view" && selectedIdeId) {
+            return <C2CIdeView ideId={selectedIdeId} onBack={() => setView("c2c-ide")} />;
+        }
 
         if (settings.maintenanceMode && !isAdmin) {
             return <Login onUserLogin={handleUserLogin} onAdminLogin={handleAdminLogin} onSwitch={() => setView("signup")} maintenanceMode={true} />;
@@ -144,7 +135,6 @@ const App = () => {
                 )}
                 {view === "about" && <About />}
                 {view === "contact" && <Contact />}
-                {view === "contact" && <Contact />}
                 {view === "community" && <CommunityForum user={user} settings={settings} onNavigate={(v, id) => {
                     if (id) setSelectedPostId(id);
                     setView(v);
@@ -153,6 +143,10 @@ const App = () => {
                 {view === "community-post" && selectedPostId && <ForumPostDetail postId={selectedPostId} onNavigate={setView} user={user} />}
                 {view === "profile" && user && <Profile user={user} />}
                 {view === "chat" && <GlobalChat user={user || (isAdmin ? { userId: 'admin', username: 'Administrator', email: 'admin@shopc2c.io', isBanned: false, createdAt: 0, _id: 'admin', password: '' } : null)} onLogout={handleLogout} />}
+                {view === "c2c-ide" && <C2CIdeList onNavigate={(v, id) => {
+                    if (id) setSelectedIdeId(id);
+                    setView(v);
+                }} />}
             </>
         );
     };
@@ -160,7 +154,7 @@ const App = () => {
     return (
         <div className="bg-gray-950 min-h-screen font-sans selection:bg-violet-500/30">
             {renderView()}
-            {user && !isAdmin && view !== "chat" && <CommunityChat user={user} />}
+            {user && !isAdmin && view !== "chat" && view !== "c2c-ide-view" && <CommunityChat user={user} />}
         </div>
     );
 };
