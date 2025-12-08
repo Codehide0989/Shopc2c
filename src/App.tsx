@@ -44,31 +44,32 @@ const App = () => {
 
     useSecurity();
 
-    useEffect(() => {
-        const fetchData = async () => {
-            const [prods, cats, sets] = await Promise.all([
-                db.getProducts(),
-                db.getCategories(),
-                db.getSettings()
-            ]);
-            setProducts(prods);
-            setCategories(cats);
-            setSettings(sets);
+    const loadData = async () => {
+        const [prods, cats, sets] = await Promise.all([
+            db.getProducts(),
+            db.getCategories(),
+            db.getSettings()
+        ]);
+        setProducts(prods);
+        setCategories(cats);
+        setSettings(sets);
 
-            // Refresh User Session if logged in
-            if (user) {
-                const latestUser = await db.getLatestUser(user.userId);
-                if (latestUser) {
-                    AuthManager.loginUserSession(latestUser);
-                    setUser(latestUser);
-                    // Update admin status if role changed
-                    if (latestUser.role === 'admin' && !isAdmin) {
-                        setIsAdmin(true);
-                    }
+        // Refresh User Session if logged in
+        if (user) {
+            const latestUser = await db.getLatestUser(user.userId);
+            if (latestUser) {
+                AuthManager.loginUserSession(latestUser);
+                setUser(latestUser);
+                // Update admin status if role changed
+                if (latestUser.role === 'admin' && !isAdmin) {
+                    setIsAdmin(true);
                 }
             }
-        };
-        fetchData();
+        }
+    };
+
+    useEffect(() => {
+        loadData();
 
         const handleStorageChange = () => {
             setTick(t => t + 1);
@@ -113,7 +114,10 @@ const App = () => {
     };
 
     const renderView = () => {
-        if (view === "admin" && isAdmin) return <AdminDashboard user={user} onLogout={handleAdminLogout} onBackToStore={() => setView("home")} />;
+        if (view === "admin" && isAdmin) return <AdminDashboard user={user} onLogout={handleAdminLogout} onBackToStore={() => {
+            setView("home");
+            loadData(); // Refresh settings when coming back from admin panel
+        }} />;
         if (view === "staff" && user?.role === 'staff') return <StaffDashboard user={user} onLogout={handleLogout} onBackToStore={() => setView("home")} />;
         if (view === "admin") return <Login onUserLogin={handleUserLogin} onAdminLogin={handleAdminLogin} onSwitch={() => setView("signup")} maintenanceMode={settings.maintenanceMode} />;
 
