@@ -71,6 +71,41 @@ const C2CIdeView: React.FC<C2CIdeViewProps> = ({ ideId, onBack }) => {
         </div>
     );
 
+    if (ide.openIn === 'external') {
+        return (
+            <div className="h-screen w-screen bg-[#050505] flex flex-col items-center justify-center relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-violet-900/20 to-fuchsia-900/20 pointer-events-none"></div>
+
+                <button
+                    onClick={onBack}
+                    className="absolute top-8 left-8 p-3 bg-white/5 hover:bg-white/10 rounded-xl text-white transition flex items-center gap-2 z-50 backdrop-blur-md border border-white/5"
+                >
+                    <i className="fa-solid fa-arrow-left"></i> Back
+                </button>
+
+                <div className="text-center max-w-lg p-8 relative z-10">
+                    <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-violet-600 to-fuchsia-600 mx-auto flex items-center justify-center shadow-2xl shadow-violet-500/30 mb-8 animate-in zoom-in duration-500">
+                        <i className="fa-solid fa-external-link-alt text-4xl text-white"></i>
+                    </div>
+
+                    <h1 className="text-3xl font-bold text-white mb-4">External Environment</h1>
+                    <p className="text-gray-400 mb-8 text-lg">
+                        This environment ({ide.title}) is hosted externally. Click below to launch it in a new tab.
+                    </p>
+
+                    <a
+                        href={ide.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-3 bg-white text-black hover:bg-gray-200 px-8 py-4 rounded-xl font-bold text-lg transition shadow-lg hover:scale-105 active:scale-95"
+                    >
+                        Launch Now <i className="fa-solid fa-arrow-up-right-from-square"></i>
+                    </a>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="h-screen w-screen bg-[#050505] flex flex-col overflow-hidden relative">
             {/* Header / Toolbar */}
@@ -86,7 +121,16 @@ const C2CIdeView: React.FC<C2CIdeViewProps> = ({ ideId, onBack }) => {
                         </h2>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
+                        {/* <a
+                            href={ide.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold rounded-lg transition flex items-center gap-2"
+                        >
+                            <i className="fa-solid fa-external-link-alt"></i> Open in New Tab
+                        </a>
+                        <div className="w-px h-6 bg-gray-800 mx-2"></div> */}
                         <button
                             onClick={() => setIsFullscreen(!isFullscreen)}
                             className={`p-2 rounded-lg transition-colors ${isFullscreen ? 'bg-white/20 text-white' : 'hover:bg-white/10 text-gray-400'}`}
@@ -103,23 +147,43 @@ const C2CIdeView: React.FC<C2CIdeViewProps> = ({ ideId, onBack }) => {
             )}
 
             {/* Floating Fullscreen Exit Button */}
-            {isFullscreen && (
-                <button
-                    onClick={() => setIsFullscreen(false)}
-                    className="absolute top-4 right-4 z-[60] bg-black/50 hover:bg-black/80 text-white p-2 rounded-lg backdrop-blur-sm transition border border-white/10"
-                    title="Exit Fullscreen"
-                >
-                    <i className="fa-solid fa-compress"></i>
-                </button>
-            )}
+            {
+                isFullscreen && (
+                    <div className="absolute top-4 right-4 z-[60] flex gap-2">
+                        <a
+                            href={ide.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="bg-black/50 hover:bg-black/80 text-white p-2 rounded-lg backdrop-blur-sm transition border border-white/10"
+                            title="Open in New Tab"
+                        >
+                            <i className="fa-solid fa-external-link-alt"></i>
+                        </a>
+                        <button
+                            onClick={() => setIsFullscreen(false)}
+                            className="bg-black/50 hover:bg-black/80 text-white p-2 rounded-lg backdrop-blur-sm transition border border-white/10"
+                            title="Exit Fullscreen"
+                        >
+                            <i className="fa-solid fa-compress"></i>
+                        </button>
+                    </div>
+                )
+            }
 
             {/* Iframe */}
-            <div className="flex-1 relative bg-black">
+            <div className="flex-1 relative bg-black group">
                 {loading && (
                     <div className="absolute inset-0 flex items-center justify-center bg-[#050505] z-10">
                         <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
                     </div>
                 )}
+
+                {/* Overlay hint for blank screens */}
+                {/* Overlay hint for blank screens */}
+                {/* <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-md text-white px-4 py-2 rounded-full text-xs border border-white/10 opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none">
+                    If the screen is blank, ask Admin to change to "External" mode.
+                </div> */}
+
                 {sessionEnded && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-50 backdrop-blur-sm animate-in fade-in duration-500">
                         <div className="text-center">
@@ -136,9 +200,10 @@ const C2CIdeView: React.FC<C2CIdeViewProps> = ({ ideId, onBack }) => {
                     allow="clipboard-read; clipboard-write; camera; microphone; fullscreen; display-capture"
                     allowFullScreen
                     onLoad={() => setLoading(false)}
+                    onError={() => setLoading(false)}
                 />
             </div>
-        </div>
+        </div >
     );
 };
 

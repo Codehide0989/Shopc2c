@@ -157,4 +157,5 @@ export interface C2CIde {
     url: string;
     imageUrl: string;
     timerDuration: number;
+    openIn?: 'internal' | 'external';
 }

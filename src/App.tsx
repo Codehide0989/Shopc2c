@@ -112,6 +112,11 @@ const App = () => {
 
         if (view === "payment" && selectedProduct && user) return <Payment product={selectedProduct} user={user} onCancel={() => setView("product")} />;
 
+        if ((view === "c2c-ide" || view === "c2c-ide-view") && !user) {
+            setView("login");
+            return <Login onUserLogin={handleUserLogin} onAdminLogin={handleAdminLogin} onSwitch={() => setView("signup")} maintenanceMode={settings.maintenanceMode} />;
+        }
+
         if (view === "c2c-ide-view" && selectedIdeId) {
             return <C2CIdeView ideId={selectedIdeId} onBack={() => setView("c2c-ide")} />;
         }

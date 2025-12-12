@@ -1,0 +1,16 @@
+{
+    "projectId": "shopc2c",
+    "testDir": "./tests",
+    "baseUrl": "http://localhost:5173",
+    "framework": "vitest",
+    "mcp": {
+        "enabled": true,
+        "server": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@testsprite/mcp-server"
+            ]
+        }
+    }
+}

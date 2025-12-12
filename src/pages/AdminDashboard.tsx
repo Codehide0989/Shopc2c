@@ -41,6 +41,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
     const [bannedUsers, setBannedUsers] = useState<User[]>([]);
     const [c2cIdes, setC2CIdes] = useState<C2CIde[]>([]);
     const [editingIde, setEditingIde] = useState<Partial<C2CIde> | null>(null);
+    const [newIde, setNewIde] = useState<Partial<C2CIde>>({ timerDuration: 60, openIn: 'internal' });
+    const [isAddingIde, setIsAddingIde] = useState(false);
 
     // Edit/Create State
     const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
@@ -328,82 +330,79 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
     // IDE Actions
     const handleAddIde = async (e: React.FormEvent) => {
         e.preventDefault();
-        const form = e.target as HTMLFormElement;
-        const title = (form.elements.namedItem('title') as HTMLInputElement).value;
-        const url = (form.elements.namedItem('url') as HTMLInputElement).value;
-        let imageUrl = (form.elements.namedItem('imageUrl') as HTMLInputElement).value;
-        const timerDuration = parseInt((form.elements.namedItem('timerDuration') as HTMLInputElement).value);
-
-        if (!imageUrl || imageUrl.trim() === '') {
-            imageUrl = `https://image.thum.io/get/width/600/crop/800/${url}`;
-        }
-
-        await db.saveC2CIdeLink({ title, url, imageUrl, timerDuration });
-        form.reset();
-        refresh();
-    };
-
-    const handleDeleteIde = async (id: string) => {
-        if (!confirm("Delete this environment?")) return;
+        if (!newIde.title || !newIde.url) return;
         try {
-            await db.deleteC2CIdeLink(id);
+            await db.saveC2CIdeLink(newIde as any);
+            await db.saveC2CIdeLink(newIde as any);
+            setNewIde({ timerDuration: 60, title: "", url: "", imageUrl: "", openIn: 'internal' });
+            refresh();
             refresh();
         } catch (e: any) {
-            alert("Failed to delete: " + e.message);
+            alert("Error adding environment: " + e.message);
         }
     };
 
-    const handleUpdateIde = async () => {
-        if (!editingIde || !editingIde.title || !editingIde.url || !editingIde.id) return;
+    const handleUpdateIde = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingIde || !editingIde.id) return;
         try {
             await db.updateC2CIdeLink(editingIde.id, editingIde);
             setEditingIde(null);
             refresh();
         } catch (e: any) {
-            alert("Failed to update: " + e.message);
+            alert("Error updating environment: " + e.message);
         }
     };
 
+    const handleDeleteIde = async (id: string) => {
+        if (confirm("Delete this environment?")) {
+            await db.deleteC2CIdeLink(id);
+            refresh();
+        }
+    };
+
+
     return (
-        <div className="min-h-screen bg-gray-950 flex text-gray-100 font-sans relative">
-            {/* Background Ambience */}
-            <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-violet-900/20 to-transparent pointer-events-none z-0"></div>
+        <div className="flex h-screen bg-black text-white font-sans overflow-hidden relative">
+            {/* Mobile Sidebar Overlay */}
+            {sidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/80 backdrop-blur-sm z-30 md:hidden animate-in fade-in duration-200"
+                    onClick={() => setSidebarOpen(false)}
+                ></div>
+            )}
 
             {/* Sidebar */}
-            <aside className={`fixed inset-y-0 left-0 z-50 ${collapsed ? 'w-20' : 'w-72'} bg-gray-900/80 backdrop-blur-xl border-r border-gray-800/50 transform ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0 transition-all duration-300 shadow-2xl flex flex-col`}>
-                <div className={`h-24 flex items-center ${collapsed ? 'justify-center px-0' : 'px-8'} border-b border-gray-800/50 bg-gradient-to-r from-gray-900/90 to-gray-800/50 relative`}>
-                    {/* Toggle Button for Desktop */}
-                    <button onClick={() => setCollapsed(!collapsed)} className="hidden md:flex absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-violet-600 rounded-full items-center justify-center text-white text-[10px] shadow-lg hover:scale-110 transition z-50">
-                        <i className={`fa-solid fa-chevron-${collapsed ? 'right' : 'left'}`}></i>
+            <aside className={`bg-[#050505] border-r border-[#1a1a1a] flex flex-col transition-all duration-300 z-40 ${collapsed ? 'w-20' : 'w-72'} ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'} fixed md:relative h-full`}>
+                <div className={`p-6 flex items-center ${collapsed ? 'justify-center' : 'justify-between'} border-b border-[#1a1a1a]`}>
+                    {!collapsed && (
+                        <div onClick={onBackToStore} className="cursor-pointer group">
+                            <h2 className="text-xl font-display font-bold bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-fuchsia-400 group-hover:to-white transition-all">{settings.storeName}</h2>
+                            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold group-hover:text-gray-400 transition">Admin Panel</p>
+                        </div>
+                    )}
+                    <button onClick={() => setCollapsed(!collapsed)} className="text-gray-500 hover:text-white transition p-2 hover:bg-white/5 rounded-lg hidden md:block">
+                        <i className={`fa-solid ${collapsed ? "fa-angles-right" : "fa-angles-left"}`}></i>
                     </button>
-
-                    <div className="flex items-center gap-4 overflow-hidden">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 flex-shrink-0 flex items-center justify-center shadow-lg shadow-violet-500/30 ring-1 ring-white/10">
-                            <i className="fa-solid fa-layer-group text-white"></i>
-                        </div>
-                        <div className={`transition-opacity duration-300 ${collapsed ? 'opacity-0 w-0 hidden' : 'opacity-100'}`}>
-                            <span className="text-xl font-display font-bold text-white tracking-wide block leading-none">ShopC2C</span>
-                            <span className="text-xs font-bold text-violet-400 uppercase tracking-widest">Admin Panel</span>
-                        </div>
-                    </div>
-                    <button onClick={() => setSidebarOpen(false)} className="md:hidden ml-auto text-gray-400 hover:text-white transition"><i className="fa-solid fa-xmark text-xl"></i></button>
+                    <button onClick={() => setSidebarOpen(false)} className="text-gray-500 hover:text-white transition p-2 hover:bg-white/5 rounded-lg md:hidden">
+                        <i className="fa-solid fa-xmark text-lg"></i>
+                    </button>
                 </div>
 
-                <nav className="p-4 space-y-1.5 overflow-y-auto flex-1 custom-scrollbar">
-                    <div className="mb-8">
-                        {!collapsed && <p className="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 animate-in fade-in">Dashboard</p>}
-                        {(['overview', 'products', 'categories', 'users', 'access', 'orders', 'reviews', 'coupons', 'chat', 'forum', 'c2cide'] as const).map(tab => (
+                <nav className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-8">
+                    <div>
+                        {!collapsed && <p className="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 animate-in fade-in">Management</p>}
+                        {[
+                            'overview', 'products', 'categories', 'users', 'access', 'reviews', 'orders', 'coupons', 'forum', 'c2cide'
+                        ].map((tab) => (
                             <button
                                 key={tab}
-                                onClick={() => { setActiveTab(tab); setSidebarOpen(false); }}
-                                className={`w-full text-left ${collapsed ? 'px-0 justify-center' : 'px-4'} py-3.5 rounded-xl font-medium transition-all duration-300 flex items-center gap-3 group relative overflow-hidden ${activeTab === tab
-                                    ? "bg-gradient-to-r from-violet-600/20 to-fuchsia-600/20 text-white shadow-[0_0_20px_rgba(124,58,237,0.1)] border border-violet-500/30"
-                                    : "text-gray-400 hover:bg-white/5 hover:text-white"}`}
-                                title={collapsed ? tab.charAt(0).toUpperCase() + tab.slice(1) : ''}
+                                onClick={() => { setActiveTab(tab as any); setSidebarOpen(false); }}
+                                className={`w-full text-left ${collapsed ? 'px-0 justify-center' : 'px-4'} py-3 mb-1 rounded-xl font-medium transition-all duration-200 flex items-center gap-3 group relative overflow-hidden ${activeTab === tab ? "bg-violet-600 text-white shadow-[0_0_20px_rgba(139,92,246,0.3)]" : "text-gray-400 hover:bg-white/5 hover:text-white"}`}
+                                title={collapsed ? tab.charAt(0).toUpperCase() + tab.slice(1) : ""}
                             >
-                                {activeTab === tab && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-violet-500 to-fuchsia-500 rounded-r-full"></div>}
-                                <span className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-300 transform group-active:scale-90 ${activeTab === tab ? "bg-violet-500 text-white shdaow-lg scale-110" : "bg-gray-800 text-gray-500 group-hover:bg-gray-700 group-hover:text-gray-300"}`}>
-                                    <i className={`fa-solid ${tab === 'overview' ? 'fa-chart-pie' :
+                                <span className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${activeTab === tab ? "bg-white/20" : "bg-gray-800 text-gray-500 group-hover:bg-gray-700"}`}>
+                                    <i className={`fa-solid text-sm ${tab === 'overview' ? 'fa-chart-pie' :
                                         tab === 'products' ? 'fa-box' :
                                             tab === 'categories' ? 'fa-tags' :
                                                 tab === 'users' ? 'fa-users' :
@@ -446,797 +445,888 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                         </div>
                     </div>
                 </nav>
-            </aside>
+            </aside >
 
             {/* Main Content */}
-            <main className={`flex-1 p-6 md:p-12 overflow-y-auto h-screen relative z-10 custom-scrollbar transition-all duration-300 ${collapsed ? 'md:ml-20' : 'md:ml-72'}`}>
-                <div className="md:hidden mb-6">
-                    <button onClick={() => setSidebarOpen(true)} className="p-2 bg-gray-800 rounded text-gray-300"><i className="fa-solid fa-bars"></i> Menu</button>
+            <main className={`flex-1 p-4 md:p-8 lg:p-10 overflow-y-auto h-screen relative z-10 custom-scrollbar transition-all duration-300 bg-[#050505]`}>
+                <div className="md:hidden mb-6 flex justify-between items-center">
+                    <h1 className="text-xl font-bold text-white tracking-tight">{settings.storeName}</h1>
+                    <button onClick={() => setSidebarOpen(true)} className="p-2.5 bg-gray-900 border border-gray-800 rounded-xl text-gray-300 shadow-lg hover:bg-gray-800 transition"><i className="fa-solid fa-bars"></i></button>
                 </div>
 
-                {activeTab === 'overview' && (
-                    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-                            <div>
-                                <h1 className="text-4xl font-display font-bold text-white mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">System Overview</h1>
-                                <p className="text-gray-400">Welcome back, Admin. Real-time insights.</p>
-                            </div>
-                            <div className="flex items-center gap-2 bg-gray-900/50 backdrop-blur-md px-4 py-2 rounded-full border border-gray-800">
-                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                                <p className="text-xs text-gray-400 font-mono">LIVE UPDATE</p>
-                            </div>
-                        </header>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                            {[
-                                { title: "Total Revenue", value: `₹${permissions.reduce((acc, perm) => acc + (products.find(p => p.id === perm.productId)?.priceInr || 0), 0).toLocaleString()}`, icon: "fa-wallet", color: "from-violet-500 to-indigo-500", sub: "Lifetime Earnings" },
-                                { title: "Total Users", value: users.length, icon: "fa-users", color: "from-fuchsia-500 to-pink-500", sub: `${users.filter(u => u.role !== 'user').length} Staff Members` },
-                                { title: "Active Products", value: products.length, icon: "fa-box-open", color: "from-blue-500 to-cyan-500", sub: `${categories.length} Categories` },
-                                { title: "Total Reviews", value: reviews.length, icon: "fa-star", color: "from-emerald-500 to-teal-500", sub: `${reviews.filter(r => r.status === 'pending').length} Pending` },
-                                { title: "Forum Requests", value: forumPosts.length, icon: "fa-comments", color: "from-orange-500 to-red-500", sub: "Pending Approval" }
-                            ].map((stat, idx) => (
-                                <div key={idx} className="relative overflow-hidden bg-gray-900/40 backdrop-blur-xl p-6 rounded-3xl border border-gray-800 group hover:border-gray-700 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
-                                    <div className={`absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity bg-gradient-to-br ${stat.color} bg-clip-text text-transparent`}>
-                                        <i className={`fa-solid ${stat.icon} text-8xl`}></i>
-                                    </div>
-                                    <div className="relative z-10">
-                                        <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${stat.color} flex items-center justify-center text-white mb-6 shadow-lg transform group-hover:rotate-6 transition-transform`}>
-                                            <i className={`fa-solid ${stat.icon}`}></i>
-                                        </div>
-                                        <p className="text-gray-500 text-xs uppercase font-bold tracking-wider mb-2">{stat.title}</p>
-                                        <p className="text-3xl font-display font-bold text-white mb-2">{stat.value}</p>
-                                        <p className="text-xs text-gray-600 font-medium">{stat.sub}</p>
-                                    </div>
+                {
+                    activeTab === 'overview' && (
+                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+                                <div>
+                                    <h1 className="text-4xl font-display font-bold text-white mb-2 bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">System Overview</h1>
+                                    <p className="text-gray-400">Welcome back, Admin. Real-time insights.</p>
                                 </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                                <div className="flex items-center gap-2 bg-gray-900/50 backdrop-blur-md px-4 py-2 rounded-full border border-gray-800">
+                                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                    <p className="text-xs text-gray-400 font-mono">LIVE UPDATE</p>
+                                </div>
+                            </header>
 
-                {activeTab === 'coupons' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4">
-                        <div className="flex justify-between items-center mb-8">
-                            <div>
-                                <h1 className="text-3xl font-bold text-white mb-2">Discount Coupons</h1>
-                                <p className="text-gray-400 text-sm">Manage promotional codes for your store.</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                                {[
+                                    { title: "Total Revenue", value: `₹${permissions.reduce((acc, perm) => acc + (products.find(p => p.id === perm.productId)?.priceInr || 0), 0).toLocaleString()}`, icon: "fa-wallet", color: "from-violet-500 to-indigo-500", sub: "Lifetime Earnings" },
+                                    { title: "Total Users", value: users.length, icon: "fa-users", color: "from-fuchsia-500 to-pink-500", sub: `${users.filter(u => u.role !== 'user').length} Staff Members` },
+                                    { title: "Active Products", value: products.length, icon: "fa-box-open", color: "from-blue-500 to-cyan-500", sub: `${categories.length} Categories` },
+                                    { title: "Total Reviews", value: reviews.length, icon: "fa-star", color: "from-emerald-500 to-teal-500", sub: `${reviews.filter(r => r.status === 'pending').length} Pending` },
+                                    { title: "Forum Requests", value: forumPosts.length, icon: "fa-comments", color: "from-orange-500 to-red-500", sub: "Pending Approval" }
+                                ].map((stat, idx) => (
+                                    <div key={idx} className="relative overflow-hidden bg-gray-900/40 backdrop-blur-xl p-6 rounded-3xl border border-gray-800 group hover:border-gray-700 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
+                                        <div className={`absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity bg-gradient-to-br ${stat.color} bg-clip-text text-transparent`}>
+                                            <i className={`fa-solid ${stat.icon} text-8xl`}></i>
+                                        </div>
+                                        <div className="relative z-10">
+                                            <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${stat.color} flex items-center justify-center text-white mb-6 shadow-lg transform group-hover:rotate-6 transition-transform`}>
+                                                <i className={`fa-solid ${stat.icon}`}></i>
+                                            </div>
+                                            <p className="text-gray-500 text-xs uppercase font-bold tracking-wider mb-2">{stat.title}</p>
+                                            <p className="text-3xl font-display font-bold text-white mb-2">{stat.value}</p>
+                                            <p className="text-xs text-gray-600 font-medium">{stat.sub}</p>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                            <button
-                                onClick={() => setIsAddingCoupon(true)}
-                                className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg shadow-fuchsia-600/20 flex items-center gap-2"
-                            >
-                                <i className="fa-solid fa-plus"></i> Create New
-                            </button>
                         </div>
+                    )
+                }
 
-                        {isAddingCoupon && (
-                            <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-                                <div className="bg-gray-900 w-full max-w-sm rounded-2xl border border-gray-700 p-6 shadow-2xl relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-fuchsia-500 to-pink-500"></div>
-                                    <h2 className="text-xl font-bold mb-4 text-white">Add New Coupon</h2>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Coupon Code</label>
-                                            <input
-                                                className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none font-mono tracking-wider"
-                                                placeholder="e.g. SAVE20"
-                                                autoFocus
-                                                value={newCouponCode}
-                                                onChange={e => setNewCouponCode(e.target.value.toUpperCase())}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Discount (%)</label>
-                                            <input
-                                                type="number"
-                                                className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none"
-                                                placeholder="e.g. 20"
-                                                max="100"
-                                                min="1"
-                                                value={newCouponPercent}
-                                                onChange={e => setNewCouponPercent(Number(e.target.value))}
-                                            />
-                                        </div>
-                                        <div className="flex gap-3 pt-4">
-                                            <button onClick={handleAddCoupon} disabled={!newCouponCode || !newCouponPercent} className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 py-3 rounded-xl font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed">Add Coupon</button>
-                                            <button onClick={() => setIsAddingCoupon(false)} className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold text-white border border-gray-700">Cancel</button>
-                                        </div>
-                                    </div>
+                {
+                    activeTab === 'c2cide' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4">
+                            <div className="flex justify-between items-center mb-8">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-white mb-2">IDE Environments</h1>
+                                    <p className="text-gray-400 text-sm">Manage cloud development environments for users.</p>
                                 </div>
+                                <button
+                                    onClick={() => setIsAddingIde(true)}
+                                    className="bg-violet-600 hover:bg-violet-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-violet-600/20 flex items-center gap-2 transition"
+                                >
+                                    <i className="fa-solid fa-plus"></i> Add Environment
+                                </button>
                             </div>
-                        )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {coupons.length === 0 ? (
-                                <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-500 border border-dashed border-gray-800 rounded-3xl bg-gray-900/20">
-                                    <i className="fa-solid fa-ticket text-4xl mb-4 opacity-50"></i>
-                                    <p>No active coupons found.</p>
-                                </div>
-                            ) : (
-                                coupons.map(coupon => (
-                                    <div key={coupon.id} className="group relative bg-gray-900/50 backdrop-blur-sm border border-gray-800 p-6 rounded-2xl flex justify-between items-center hover:border-fuchsia-500/30 transition-all hover:bg-gray-900">
-                                        <div className="absolute -left-[1px] top-4 bottom-4 w-1 bg-gradient-to-b from-fuchsia-500 to-pink-500 rounded-r-full opacity-50 group-hover:opacity-100 transition-opacity"></div>
-                                        <div>
-                                            <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Code</p>
-                                            <p className="font-bold text-white text-xl tracking-wider font-mono">{coupon.code}</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-emerald-400 font-bold text-2xl">{coupon.percent}%</p>
-                                            <p className="text-xs text-gray-600 font-bold uppercase">Discount</p>
-                                        </div>
-                                        <button
-                                            onClick={async () => {
-                                                if (confirm("Delete this coupon?")) {
-                                                    await db.deleteCoupon(coupon.id);
-                                                    refresh();
-                                                }
-                                            }}
-                                            className="absolute top-2 right-2 p-2 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
-                                        >
-                                            <i className="fa-solid fa-trash"></i>
-                                        </button>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === 'products' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4">
-                        <div className="flex justify-between items-center mb-8">
-                            <h1 className="text-3xl font-bold text-white">Products</h1>
-                            <button
-                                onClick={() => setEditingProduct({
-                                    title: "", description: "", priceInr: 0, priceOwo: 0,
-                                    category: categories[0]?.name || "", features: [],
-                                    imageUrl: "", images: [], downloadUrl: "", type: "workflow", meta: {}
-                                })}
-                                className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-600/20"
-                            >
-                                <i className="fa-solid fa-plus mr-2"></i> Add Product
-                            </button>
-                        </div>
-
-                        {editingProduct && (
-                            <div className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
-                                <div className="bg-[#050505] w-full h-full rounded-none md:rounded-2xl border border-gray-800 flex flex-col md:flex-row overflow-hidden shadow-2xl">
-                                    {/* Form */}
-                                    <div className="w-full md:w-[60%] p-6 md:p-8 overflow-y-auto border-b md:border-b-0 md:border-r border-gray-800 custom-scrollbar bg-gray-900/50">
-                                        <h2 className="text-2xl font-bold mb-6 text-white flex items-center gap-3">
-                                            <i className="fa-solid fa-pen-to-square text-violet-500"></i>
-                                            Edit Product
-                                        </h2>
-                                        <div className="space-y-6">
-                                            <div className="space-y-2">
-                                                <label className="text-xs text-gray-400 font-bold uppercase tracking-wider ml-1">Product Title</label>
-                                                <input
-                                                    className="w-full bg-[#0a0a0c] border border-gray-800 rounded-xl p-4 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder:text-gray-700"
-                                                    value={editingProduct.title}
-                                                    onChange={e => setEditingProduct({ ...editingProduct, title: e.target.value })}
-                                                    placeholder="Enter product title..."
-                                                />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <label className="text-xs text-gray-400 font-bold uppercase tracking-wider ml-1">Description</label>
-                                                <textarea
-                                                    className="w-full bg-[#0a0a0c] border border-gray-800 rounded-xl p-4 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none h-40 transition-all resize-none placeholder:text-gray-700 leading-relaxed"
-                                                    value={editingProduct.description}
-                                                    onChange={e => setEditingProduct({ ...editingProduct, description: e.target.value })}
-                                                    placeholder="Detailed description of the product..."
-                                                />
-                                            </div>
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                                <div className="space-y-2">
-                                                    <label className="text-xs text-gray-400 font-bold uppercase tracking-wider ml-1">Price (INR)</label>
-                                                    <div className="relative">
-                                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-mono">₹</span>
-                                                        <input
-                                                            type="number"
-                                                            className="w-full bg-[#0a0a0c] border border-gray-800 rounded-xl p-4 pl-10 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
-                                                            value={editingProduct.priceInr}
-                                                            onChange={e => setEditingProduct({ ...editingProduct, priceInr: parseInt(e.target.value) })}
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <label className="text-xs text-gray-400 font-bold uppercase tracking-wider ml-1">Price (Owo)</label>
-                                                    <div className="relative">
-                                                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-mono">Ø</span>
-                                                        <input
-                                                            type="number"
-                                                            className="w-full bg-[#0a0a0c] border border-gray-800 rounded-xl p-4 pl-10 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
-                                                            value={editingProduct.priceOwo}
-                                                            onChange={e => setEditingProduct({ ...editingProduct, priceOwo: parseInt(e.target.value) })}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="space-y-1">
-                                                    <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Category</label>
-                                                    <select className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none transition" value={editingProduct.category} onChange={e => setEditingProduct({ ...editingProduct, category: e.target.value })}>
-                                                        <option disabled value="">Select Category</option>
-                                                        {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                                                    </select>
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Type</label>
-                                                    <select className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none transition" value={editingProduct.type} onChange={e => setEditingProduct({ ...editingProduct, type: e.target.value as any })}>
-                                                        <option value="workflow">Workflow</option>
-                                                        <option value="pack">Pack</option>
-                                                        <option value="audio">Audio</option>
-                                                        <option value="other">Other</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-1">
-                                                <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Main Image URL</label>
-                                                <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none transition" placeholder="Image URL" value={editingProduct.imageUrl} onChange={e => setEditingProduct({ ...editingProduct, imageUrl: e.target.value })} />
-                                            </div>
-
-                                            <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
-                                                <label className="text-xs text-gray-400 font-bold uppercase mb-2 block">Upload File</label>
-                                                <input type="file" className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" onChange={handleFileUpload} />
-                                                <p className="text-xs text-gray-500 mb-2 mt-2">OR enter external URL:</p>
-                                                <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="https://..." value={editingProduct.downloadUrl || ""} onChange={e => setEditingProduct({ ...editingProduct, downloadUrl: e.target.value })} />
-                                            </div>
-
-                                            <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
-                                                <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase flex items-center gap-2"><i className="fa-solid fa-images"></i> Additional Images</h3>
-                                                <div className="space-y-3">
-                                                    {(editingProduct.images || []).map((img, idx) => (
-                                                        <div key={idx} className="flex gap-2">
-                                                            <input
-                                                                className="flex-1 bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white"
-                                                                value={img}
-                                                                onChange={(e) => {
-                                                                    const newImages = [...(editingProduct.images || [])];
-                                                                    newImages[idx] = e.target.value;
-                                                                    setEditingProduct({ ...editingProduct, images: newImages });
-                                                                }}
-                                                                placeholder="Image URL"
-                                                            />
-                                                            <button
-                                                                onClick={() => {
-                                                                    const newImages = (editingProduct.images || []).filter((_, i) => i !== idx);
-                                                                    setEditingProduct({ ...editingProduct, images: newImages });
-                                                                }}
-                                                                className="p-2 text-red-500 hover:bg-red-500/10 rounded transition"
-                                                            >
-                                                                <i className="fa-solid fa-trash"></i>
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                    <button
-                                                        onClick={() => setEditingProduct({ ...editingProduct, images: [...(editingProduct.images || []), ""] })}
-                                                        className="text-sm text-blue-400 font-bold hover:text-white flex items-center gap-2 transition"
-                                                    >
-                                                        <i className="fa-solid fa-plus"></i> Add Image
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {/* Key Features Section */}
-                                            <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
-                                                <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase flex items-center gap-2"><i className="fa-solid fa-list-check"></i> Key Features</h3>
-                                                <div className="space-y-3">
-                                                    {(editingProduct.features || []).map((feature, idx) => (
-                                                        <div key={idx} className="flex gap-2">
-                                                            <input
-                                                                className="flex-1 bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white"
-                                                                value={feature}
-                                                                onChange={(e) => {
-                                                                    const newFeatures = [...(editingProduct.features || [])];
-                                                                    newFeatures[idx] = e.target.value;
-                                                                    setEditingProduct({ ...editingProduct, features: newFeatures });
-                                                                }}
-                                                                placeholder="Feature description"
-                                                            />
-                                                            <button
-                                                                onClick={() => {
-                                                                    const newFeatures = (editingProduct.features || []).filter((_, i) => i !== idx);
-                                                                    setEditingProduct({ ...editingProduct, features: newFeatures });
-                                                                }}
-                                                                className="p-2 text-red-500 hover:bg-red-500/10 rounded transition"
-                                                            >
-                                                                <i className="fa-solid fa-trash"></i>
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                    <button
-                                                        onClick={() => setEditingProduct({ ...editingProduct, features: [...(editingProduct.features || []), ""] })}
-                                                        className="text-sm text-emerald-400 font-bold hover:text-emerald-300 flex items-center gap-2 transition"
-                                                    >
-                                                        <i className="fa-solid fa-plus"></i> Add Feature
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
-                                                <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase flex items-center gap-2"><i className="fa-solid fa-microchip"></i> Metadata (All Fields)</h3>
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Node Count (Workflow)" type="number" value={editingProduct.meta?.nodeCount || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, nodeCount: parseInt(e.target.value) } })} />
-                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Trigger (Workflow)" value={editingProduct.meta?.trigger || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, trigger: e.target.value } })} />
-
-                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="File Count" type="number" value={editingProduct.meta?.fileCount || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, fileCount: parseInt(e.target.value) } })} />
-                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Resolution" value={editingProduct.meta?.resolution || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, resolution: e.target.value } })} />
-
-                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Duration" value={editingProduct.meta?.duration || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, duration: e.target.value } })} />
-                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Format" value={editingProduct.meta?.format || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, format: e.target.value } })} />
-
-                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Sample Rate" value={editingProduct.meta?.sampleRate || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, sampleRate: e.target.value } })} />
-                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Bit Depth" value={editingProduct.meta?.bitDepth || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, bitDepth: e.target.value } })} />
-
-                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Bitrate" value={editingProduct.meta?.bitrate || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, bitrate: e.target.value } })} />
-                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Integrations" value={editingProduct.meta?.integrations || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, integrations: e.target.value } })} />
-
-                                                    <div className="col-span-2">
-                                                        <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">JSON Preview (Optional)</label>
-                                                        <textarea className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white font-mono h-20" placeholder="{ ... }" value={editingProduct.meta?.jsonPreview || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, jsonPreview: e.target.value } })}></textarea>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex gap-4 pt-6 sticky bottom-0 bg-gray-900/90 backdrop-blur-md p-4 -mx-4 -mb-4 border-t border-gray-800">
-                                                <button onClick={handleSaveProduct} className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 py-3 rounded-xl font-bold text-white shadow-lg shadow-blue-600/20 transform transition active:scale-95">Save Product</button>
-                                                <button onClick={() => setEditingProduct(null)} className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold text-white border border-gray-700 transition">Cancel</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {/* Preview */}
-                                    <div className="w-full md:w-[40%] relative bg-[#0a0a0a] flex flex-col h-full hidden md:flex">
-                                        <div className="absolute top-4 right-4 z-50 bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-full border border-white/10 text-xs font-bold uppercase tracking-wider animate-pulse pointer-events-none shadow-lg">
-                                            Live Preview (Small)
-                                        </div>
-                                        <div className="flex-1 overflow-hidden relative">
-                                            <ProductDetail
-                                                // Create a complete Product object from partial editing data
-                                                product={{
-                                                    _id: editingProduct._id || "preview_id",
-                                                    id: editingProduct.id || "preview_id",
-                                                    title: editingProduct.title || "Untitled Product",
-                                                    description: editingProduct.description || "No description provided.",
-                                                    features: editingProduct.features || [],
-                                                    priceInr: Number(editingProduct.priceInr) || 0,
-                                                    priceOwo: Number(editingProduct.priceOwo) || 0,
-                                                    category: editingProduct.category || "Uncategorized",
-                                                    imageUrl: editingProduct.imageUrl || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800",
-                                                    images: editingProduct.images || [],
-                                                    downloadUrl: editingProduct.downloadUrl || "",
-                                                    type: editingProduct.type || "other",
-                                                    meta: editingProduct.meta
-                                                }}
-                                                user={user}
-                                                onBack={() => { }}
-                                                onPurchase={() => { }}
-                                                previewMode={true}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="space-y-3">
-                            {products.map(p => (
-                                <div key={p.id} className="bg-gray-900/50 backdrop-blur-sm border border-gray-800 p-4 rounded-xl flex justify-between items-center hover:bg-gray-900 transition-colors group">
-                                    <div className="flex items-center gap-4">
-                                        <img src={p.imageUrl} className="w-16 h-16 rounded-lg object-cover shadow-sm bg-gray-800" />
-                                        <div>
-                                            <h3 className="font-bold text-white text-lg">{p.title}</h3>
-                                            <div className="flex items-center gap-3 mt-1">
-                                                <span className="text-emerald-400 font-mono font-bold">₹{p.priceInr}</span>
-                                                <span className="text-gray-600 text-xs px-2 py-0.5 bg-gray-800 rounded uppercase">{p.type}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button onClick={() => setEditingProduct(p)} className="p-2.5 bg-gray-800 text-blue-400 hover:bg-blue-500 hover:text-white rounded-lg transition"><i className="fa-solid fa-pencil"></i></button>
-                                        <button onClick={() => handleDeleteProduct(p.id)} className="p-2.5 bg-gray-800 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition"><i className="fa-solid fa-trash"></i></button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === 'c2cide' && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <div className="glass-panel p-8 rounded-2xl border border-gray-800 bg-[#0a0a0a]/80 backdrop-blur-xl">
-                            <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
-                                <i className="fa-solid fa-plus-circle text-violet-500"></i> Add New Environment
-                            </h2>
-                            {editingIde && (
-                                <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+                            {/* Add/Edit Modal */}
+                            {(isAddingIde || editingIde) && (
+                                <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
                                     <div className="bg-gray-900 w-full max-w-lg rounded-2xl border border-gray-700 p-8 shadow-2xl relative">
-                                        <h3 className="text-xl font-bold text-white mb-6">Edit Environment</h3>
-                                        <div className="space-y-4">
+                                        <div className="flex justify-between items-center mb-6">
+                                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                                <i className="fa-solid fa-code text-violet-500"></i>
+                                                {editingIde ? 'Edit Environment' : 'Add New Environment'}
+                                            </h3>
+                                            <button onClick={() => { setIsAddingIde(false); setEditingIde(null); }} className="text-gray-500 hover:text-white"><i className="fa-solid fa-xmark text-xl"></i></button>
+                                        </div>
+                                        <form onSubmit={async (e) => {
+                                            if (editingIde) {
+                                                await handleUpdateIde(e);
+                                                setEditingIde(null);
+                                            } else {
+                                                await handleAddIde(e);
+                                                setIsAddingIde(false);
+                                            }
+                                        }} className="space-y-4">
                                             <div>
                                                 <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Title</label>
-                                                <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" value={editingIde.title} onChange={e => setEditingIde({ ...editingIde, title: e.target.value })} />
+                                                <input
+                                                    name="title"
+                                                    required
+                                                    value={editingIde ? (editingIde.title || '') : (newIde.title || '')}
+                                                    onChange={e => editingIde ? setEditingIde({ ...editingIde, title: e.target.value }) : setNewIde({ ...newIde, title: e.target.value })}
+                                                    className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-violet-500 outline-none transition"
+                                                    placeholder="e.g. VS Code Web"
+                                                />
                                             </div>
                                             <div>
-                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">URL</label>
-                                                <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" value={editingIde.url} onChange={e => setEditingIde({ ...editingIde, url: e.target.value })} />
+                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Environment URL</label>
+                                                <input
+                                                    name="url"
+                                                    required
+                                                    type="url"
+                                                    value={editingIde ? (editingIde.url || '') : (newIde.url || '')}
+                                                    onChange={e => editingIde ? setEditingIde({ ...editingIde, url: e.target.value }) : setNewIde({ ...newIde, url: e.target.value })}
+                                                    className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-violet-500 outline-none transition"
+                                                    placeholder="https://..."
+                                                />
+                                                <p className="text-[10px] text-yellow-500/80 mt-1.5 flex items-start gap-1.5">
+                                                    <i className="fa-solid fa-triangle-exclamation mt-0.5"></i>
+                                                    Some sites (like n8n, GitHub) may refuse to connect in an iframe. Users will see an "Open in New Tab" option if this happens.
+                                                </p>
                                             </div>
                                             <div>
-                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Image URL</label>
-                                                <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" value={editingIde.imageUrl} onChange={e => setEditingIde({ ...editingIde, imageUrl: e.target.value })} />
+                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Opening Method</label>
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => editingIde ? setEditingIde({ ...editingIde, openIn: 'internal' }) : setNewIde({ ...newIde, openIn: 'internal' })}
+                                                        className={`p-3 rounded-xl border text-sm font-bold transition flex items-center justify-center gap-2 ${(editingIde ? editingIde.openIn : newIde.openIn) !== 'external'
+                                                            ? 'bg-violet-600 border-violet-500 text-white'
+                                                            : 'bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700'
+                                                            }`}
+                                                    >
+                                                        <i className="fa-solid fa-window-maximize"></i> Internal
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => editingIde ? setEditingIde({ ...editingIde, openIn: 'external' }) : setNewIde({ ...newIde, openIn: 'external' })}
+                                                        className={`p-3 rounded-xl border text-sm font-bold transition flex items-center justify-center gap-2 ${(editingIde ? editingIde.openIn : newIde.openIn) === 'external'
+                                                            ? 'bg-violet-600 border-violet-500 text-white'
+                                                            : 'bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700'
+                                                            }`}
+                                                    >
+                                                        <i className="fa-solid fa-external-link-alt"></i> External
+                                                    </button>
+                                                </div>
+                                                <p className="text-[10px] text-gray-500 mt-1.5 ml-1">
+                                                    Use "External" for sites that block embedding (e.g. GitHub, n8n).
+                                                </p>
                                             </div>
                                             <div>
-                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Timer (Minutes)</label>
-                                                <input type="number" className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" value={editingIde.timerDuration} onChange={e => setEditingIde({ ...editingIde, timerDuration: parseInt(e.target.value) })} />
+                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Thumbnail Image (Optional)</label>
+                                                <input
+                                                    name="imageUrl"
+                                                    value={editingIde ? (editingIde.imageUrl || '') : (newIde.imageUrl || '')}
+                                                    onChange={e => editingIde ? setEditingIde({ ...editingIde, imageUrl: e.target.value }) : setNewIde({ ...newIde, imageUrl: e.target.value })}
+                                                    className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-violet-500 outline-none transition"
+                                                    placeholder="https://..."
+                                                />
                                             </div>
-                                            <div className="flex gap-4 pt-4">
-                                                <button onClick={handleUpdateIde} className="flex-1 bg-violet-600 hover:bg-violet-500 py-3 rounded-xl font-bold text-white">Save Changes</button>
-                                                <button onClick={() => setEditingIde(null)} className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold text-white">Cancel</button>
+                                            <div>
+                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Session Duration (Minutes)</label>
+                                                <input
+                                                    name="timerDuration"
+                                                    type="number"
+                                                    required
+                                                    min="1"
+                                                    value={editingIde ? (editingIde.timerDuration || 60) : (newIde.timerDuration || 60)}
+                                                    onChange={e => editingIde ? setEditingIde({ ...editingIde, timerDuration: parseInt(e.target.value) }) : setNewIde({ ...newIde, timerDuration: parseInt(e.target.value) })}
+                                                    className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-violet-500 outline-none transition"
+                                                    placeholder="60"
+                                                />
                                             </div>
-                                        </div>
+
+                                            <div className="pt-4 flex gap-3">
+                                                <button type="submit" className="flex-1 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-bold shadow-lg transition">
+                                                    {editingIde ? 'Update Environment' : 'Add Environment'}
+                                                </button>
+                                                <button type="button" onClick={() => { setIsAddingIde(false); setEditingIde(null); }} className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold border border-gray-700 transition">Cancel</button>
+                                            </div>
+                                        </form>
                                     </div>
                                 </div>
                             )}
-                            <form onSubmit={(e) => {
-                                e.preventDefault();
-                                handleAddIde(e);
-                                // Reset form logic is handled in handleAddIde or we can do it here if we switch to controlled components
-                            }} className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Title</label>
-                                        <input name="title" required className="w-full bg-black/50 border border-gray-800 rounded-xl px-4 py-3 focus:border-violet-500 outline-none text-white transition" placeholder="e.g. Node.js Dev" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Timer (Minutes)</label>
-                                        <input name="timerDuration" type="number" required defaultValue="60" className="w-full bg-black/50 border border-gray-800 rounded-xl px-4 py-3 focus:border-violet-500 outline-none text-white transition" />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Environment URL (Must support embedding)</label>
-                                    <input name="url" type="url" required className="w-full bg-black/50 border border-gray-800 rounded-xl px-4 py-3 focus:border-violet-500 outline-none text-white transition" placeholder="https://..." />
-                                </div>
-                                <div className="flex gap-4 items-start">
-                                    <div className="flex-1">
-                                        <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Preview Image URL</label>
-                                        <input
-                                            name="imageUrl"
-                                            type="url"
-                                            // Removed required
-                                            className="w-full bg-black/50 border border-gray-800 rounded-xl px-4 py-3 focus:border-violet-500 outline-none text-white transition"
-                                            placeholder="https://... (Optional)"
-                                            onChange={(e) => {
-                                                // Live preview logic could go here if we had state, 
-                                                // but we can also just let the user type and submit. 
-                                                // For now, let's keep it simple as requested.
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="w-24 h-24 bg-gray-900 rounded-xl border border-gray-800 flex items-center justify-center overflow-hidden shrink-0 mt-6">
-                                        <i className="fa-regular fa-image text-2xl text-gray-700"></i>
-                                        {/* In a controlled component we would show the image here */}
-                                    </div>
-                                </div>
-                                <div className="pt-2">
-                                    <button type="submit" className="px-8 py-3 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-bold shadow-lg shadow-violet-900/20 transition transform hover:-translate-y-1">
-                                        Add Environment
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            {c2cIdes.map(ide => (
-                                <div key={ide.id} className="glass-panel p-4 rounded-2xl border border-gray-800 bg-[#0a0a0a]/80 backdrop-blur-xl group relative overflow-hidden">
-                                    <div className="aspect-video rounded-xl overflow-hidden mb-4 relative">
-                                        <img src={ide.imageUrl} className="w-full h-full object-cover group-hover:scale-110 transition duration-700" />
-                                        <div className="absolute inset-0 bg-black/50 group-hover:bg-black/20 transition"></div>
-                                    </div>
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <h3 className="font-bold text-white text-lg">{ide.title}</h3>
-                                            <p className="text-gray-500 text-xs font-mono">{ide.timerDuration} mins limit</p>
-                                        </div>
-                                        <button onClick={() => setEditingIde(ide)} className="w-8 h-8 rounded-lg bg-blue-500/10 hover:bg-blue-500 text-blue-500 hover:text-white flex items-center justify-center transition mr-2">
-                                            <i className="fa-solid fa-pencil"></i>
-                                        </button>
-                                        <button onClick={() => handleDeleteIde(ide.id)} className="w-8 h-8 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white flex items-center justify-center transition">
-                                            <i className="fa-solid fa-trash"></i>
-                                        </button>
-                                    </div>
-                                    <div className="mt-4 pt-4 border-t border-gray-800">
-                                        <p className="text-gray-500 text-xs truncate font-mono">{ide.url}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
+                            {/* List */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {c2cIdes.map(ide => (
+                                    <div key={ide.id} className="bg-gray-900/30 border border-gray-800 hover:border-violet-500/30 rounded-2xl p-4 flex flex-col gap-4 group transition-all relative overflow-hidden">
+                                        <div className="aspect-video w-full rounded-xl bg-gray-800 overflow-hidden relative">
+                                            <img src={ide.imageUrl || `https://image.thum.io/get/width/400/${ide.url}`} alt={ide.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                                            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition"></div>
 
-                {/* Other tabs rendered with similar improvements */}
-                {activeTab === 'categories' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4">
-                        <div className="flex justify-between items-center mb-8">
-                            <h1 className="text-3xl font-bold text-white">Categories</h1>
-                            <button onClick={() => setEditingCategory({ name: "", icon: "fa-tag" })} className="bg-violet-600 hover:bg-violet-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-violet-600/20"><i className="fa-solid fa-plus mr-2"></i> Add Category</button>
-                        </div>
-
-                        {editingCategory && (
-                            <div className="bg-gray-900 border border-gray-700 p-6 rounded-2xl mb-8 flex gap-4 items-end shadow-xl">
-                                <div className="flex-1 space-y-1">
-                                    <label className="text-xs text-gray-500 font-bold uppercase">Name</label>
-                                    <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" value={editingCategory.name} onChange={e => setEditingCategory({ ...editingCategory, name: e.target.value })} />
-                                </div>
-                                <div className="flex-1 space-y-1">
-                                    <label className="text-xs text-gray-500 font-bold uppercase">Icon Class</label>
-                                    <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" value={editingCategory.icon} onChange={e => setEditingCategory({ ...editingCategory, icon: e.target.value })} />
-                                </div>
-                                <button onClick={handleSaveCategory} className="bg-emerald-600 hover:bg-emerald-500 px-6 py-3 rounded-xl font-bold text-white shadow-lg shadow-emerald-600/20">Save</button>
-                                <button onClick={() => setEditingCategory(null)} className="bg-gray-800 px-6 py-3 rounded-xl font-bold text-white">Cancel</button>
-                            </div>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {categories.map(c => (
-                                <div key={c.id} className="bg-gray-900 border border-gray-800 p-6 rounded-2xl flex justify-between items-center hover:border-violet-500/50 transition-all group">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-xl bg-gray-800 flex items-center justify-center text-gray-400 group-hover:bg-violet-500 group-hover:text-white transition-colors shadow-lg">
-                                            <i className={`fa-solid ${c.icon}`}></i>
-                                        </div>
-                                        <span className="font-bold text-lg text-white">{c.name}</span>
-                                    </div>
-                                    <button onClick={async () => { if (confirm("Delete?")) { await db.deleteCategory(c.id); refresh(); } }} className="text-gray-500 hover:text-red-500 transition"><i className="fa-solid fa-trash"></i></button>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {activeTab === 'access' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4">
-                        <div className="flex justify-between items-center mb-8">
-                            <div>
-                                <h1 className="text-3xl font-bold text-white mb-2">Access Management</h1>
-                                <p className="text-gray-400 text-sm">Grant or revoke product access for users.</p>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                            {/* Grant Access Form */}
-                            <div className="lg:col-span-1">
-                                <div className="bg-gray-900 border border-gray-800 p-6 rounded-3xl space-y-6 sticky top-8">
-                                    <h3 className="text-xl font-bold text-white flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500"><i className="fa-solid fa-key"></i></div>
-                                        Grant New Access
-                                    </h3>
-
-                                    <form onSubmit={(e) => {
-                                        e.preventDefault();
-                                        const form = e.target as HTMLFormElement;
-                                        const userSelect = form.elements.namedItem('userId') as HTMLSelectElement;
-                                        const productSelect = form.elements.namedItem('productId') as HTMLSelectElement;
-                                        handleGrantAccess(userSelect.value, productSelect.value);
-                                        form.reset();
-                                    }} className="space-y-4">
-                                        <div>
-                                            <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Select User</label>
-                                            <select name="userId" className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-emerald-500 outline-none" required>
-                                                <option value="">-- Choose User --</option>
-                                                {users.map(u => <option key={u.userId} value={u.userId}>{u.username} ({u.email})</option>)}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Select Product</label>
-                                            <select name="productId" className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-emerald-500 outline-none" required>
-                                                <option value="">-- Choose Product --</option>
-                                                {products.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-                                            </select>
-                                        </div>
-                                        <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-600/20 transition-transform active:scale-95">Grant Access</button>
-                                    </form>
-                                </div>
-                            </div>
-
-                            {/* Permissions List */}
-                            <div className="lg:col-span-2 space-y-4">
-                                {permissions.length === 0 ? (
-                                    <div className="py-12 flex flex-col items-center justify-center text-gray-500 border border-dashed border-gray-800 rounded-3xl bg-gray-900/20">
-                                        <i className="fa-solid fa-lock-open text-4xl mb-4 opacity-50"></i>
-                                        <p>No active permissions found.</p>
-                                    </div>
-                                ) : (
-                                    permissions.map((perm, idx) => {
-                                        const user = users.find(u => u.userId === perm.userId);
-                                        const product = products.find(p => p.id === perm.productId);
-                                        if (!user || !product) return null; // cleanup invalid references visually
-
-                                        return (
-                                            <div key={idx} className="bg-gray-900/50 border border-gray-800 p-4 rounded-xl flex items-center justify-between hover:bg-gray-900 transition-colors group">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 font-bold">
-                                                        {user.username[0].toUpperCase()}
-                                                    </div>
-                                                    <div>
-                                                        <p className="font-bold text-white">{user.username}</p>
-                                                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                                                            <span>has access to</span>
-                                                            <span className="text-violet-400 font-medium">{product.title}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <button onClick={() => handleRevokeAccess(perm.userId, perm.productId)} className="p-2 text-gray-500 hover:text-red-500 transition-colors rounded-lg hover:bg-red-500/10" title="Revoke Access">
-                                                    <i className="fa-solid fa-trash"></i>
+                                            <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
+                                                <button
+                                                    onClick={() => setEditingIde(ide)}
+                                                    className="p-2 w-8 h-8 flex items-center justify-center bg-gray-900/80 backdrop-blur text-blue-400 hover:bg-blue-500 hover:text-white rounded-lg transition shadow-lg"
+                                                >
+                                                    <i className="fa-solid fa-pen text-xs"></i>
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteIde(ide.id)}
+                                                    className="p-2 w-8 h-8 flex items-center justify-center bg-gray-900/80 backdrop-blur text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition shadow-lg"
+                                                >
+                                                    <i className="fa-solid fa-trash text-xs"></i>
                                                 </button>
                                             </div>
-                                        );
-                                    })
+                                        </div>
+
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <h3 className="text-lg font-bold text-white truncate pr-2">{ide.title}</h3>
+                                            </div>
+
+                                            <div className="flex items-center gap-3">
+                                                <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded border ${ide.openIn === 'external' ? 'bg-orange-500/10 text-orange-500 border-orange-500/20' : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'}`}>
+                                                    {ide.openIn === 'external' ? 'External' : 'Internal'}
+                                                </span>
+                                                <span className="text-[10px] bg-gray-800 text-gray-400 px-2 py-0.5 rounded border border-gray-700 font-mono">
+                                                    <i className="fa-regular fa-clock mr-1"></i> {ide.timerDuration}m
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-gray-600 truncate mt-2 font-mono">{ide.url}</p>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {c2cIdes.length === 0 && (
+                                    <div className="col-span-full p-12 text-center border border-dashed border-gray-800 rounded-3xl text-gray-500 bg-gray-900/10">
+                                        <div className="w-16 h-16 bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <i className="fa-solid fa-code text-2xl text-violet-500 opacity-50"></i>
+                                        </div>
+                                        <h3 className="text-lg font-bold text-white mb-2">No Environments</h3>
+                                        <p className="mb-6">Create your first cloud development environment.</p>
+                                        <button
+                                            onClick={() => setIsAddingIde(true)}
+                                            className="bg-violet-600 hover:bg-violet-500 text-white px-6 py-2 rounded-xl font-bold text-sm shadow-lg shadow-violet-600/20 transition"
+                                        >
+                                            Add Environment
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         </div>
-                    </div>
-                )}
+                    )
+                }
 
-                {activeTab === 'forum' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-4">
-                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                            <div>
-                                <h1 className="text-3xl font-bold text-white mb-2">Forum Management</h1>
-                                <p className="text-gray-400 text-sm">Approve pending posts or manage existing discussions.</p>
-                            </div>
-                            <div className="flex flex-wrap gap-2 w-full md:w-auto">
-                                <button
-                                    onClick={() => setIsAddingPost(true)}
-                                    className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-fuchsia-600/20 flex items-center gap-2 text-sm flex-1 md:flex-none justify-center"
-                                >
-                                    <i className="fa-solid fa-plus"></i> Create Post
-                                </button>
-                                <div className="bg-gray-900 border border-gray-800 p-1 rounded-xl flex gap-1 flex-1 md:flex-none">
-                                    <button
-                                        onClick={() => { setForumView('pending'); db.getPendingForumPosts().then(setForumPosts); }}
-                                        className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${forumView === 'pending' ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:text-white'}`}
-                                    >
-                                        Pending
-                                    </button>
-                                    <button
-                                        onClick={() => { setForumView('all'); db.getAllForumPostsAdmin().then(setForumPosts); }}
-                                        className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${forumView === 'all' ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:text-white'}`}
-                                    >
-                                        All Posts
-                                    </button>
+                {
+                    activeTab === 'coupons' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4">
+                            <div className="flex justify-between items-center mb-8">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-white mb-2">Discount Coupons</h1>
+                                    <p className="text-gray-400 text-sm">Manage promotional codes for your store.</p>
                                 </div>
+                                <button
+                                    onClick={() => setIsAddingCoupon(true)}
+                                    className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-6 py-3 rounded-xl font-bold transition shadow-lg shadow-fuchsia-600/20 flex items-center gap-2"
+                                >
+                                    <i className="fa-solid fa-plus"></i> Create New
+                                </button>
+                            </div>
+
+                            {isAddingCoupon && (
+                                <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+                                    <div className="bg-gray-900 w-full max-w-sm rounded-2xl border border-gray-700 p-6 shadow-2xl relative overflow-hidden">
+                                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-fuchsia-500 to-pink-500"></div>
+                                        <h2 className="text-xl font-bold mb-4 text-white">Add New Coupon</h2>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Coupon Code</label>
+                                                <input
+                                                    className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none font-mono tracking-wider"
+                                                    placeholder="e.g. SAVE20"
+                                                    autoFocus
+                                                    value={newCouponCode}
+                                                    onChange={e => setNewCouponCode(e.target.value.toUpperCase())}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Discount (%)</label>
+                                                <input
+                                                    type="number"
+                                                    className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none"
+                                                    placeholder="e.g. 20"
+                                                    max="100"
+                                                    min="1"
+                                                    value={newCouponPercent}
+                                                    onChange={e => setNewCouponPercent(Number(e.target.value))}
+                                                />
+                                            </div>
+                                            <div className="flex gap-3 pt-4">
+                                                <button onClick={handleAddCoupon} disabled={!newCouponCode || !newCouponPercent} className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 py-3 rounded-xl font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed">Add Coupon</button>
+                                                <button onClick={() => setIsAddingCoupon(false)} className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold text-white border border-gray-700">Cancel</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                                {coupons.length === 0 ? (
+                                    <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-500 border border-dashed border-gray-800 rounded-3xl bg-gray-900/20">
+                                        <i className="fa-solid fa-ticket text-4xl mb-4 opacity-50"></i>
+                                        <p>No active coupons found.</p>
+                                    </div>
+                                ) : (
+                                    coupons.map(coupon => (
+                                        <div key={coupon.id} className="group relative bg-gray-900/50 backdrop-blur-sm border border-gray-800 p-6 rounded-2xl flex justify-between items-center hover:border-fuchsia-500/30 transition-all hover:bg-gray-900">
+                                            <div className="absolute -left-[1px] top-4 bottom-4 w-1 bg-gradient-to-b from-fuchsia-500 to-pink-500 rounded-r-full opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                                            <div>
+                                                <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Code</p>
+                                                <p className="font-bold text-white text-xl tracking-wider font-mono">{coupon.code}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-emerald-400 font-bold text-2xl">{coupon.percent}%</p>
+                                                <p className="text-xs text-gray-600 font-bold uppercase">Discount</p>
+                                            </div>
+                                            <button
+                                                onClick={async () => {
+                                                    if (confirm("Delete this coupon?")) {
+                                                        await db.deleteCoupon(coupon.id);
+                                                        refresh();
+                                                    }
+                                                }}
+                                                className="absolute top-2 right-2 p-2 text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                                            >
+                                                <i className="fa-solid fa-trash"></i>
+                                            </button>
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         </div>
+                    )
+                }
 
-                        {isAddingPost && (
-                            <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-                                <div className="bg-gray-900 w-full max-w-lg rounded-2xl border border-gray-700 p-6 shadow-2xl relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-fuchsia-500 to-violet-500"></div>
-                                    <h2 className="text-xl font-bold mb-4 text-white">Create Forum Post</h2>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Title</label>
-                                            <input
-                                                className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none"
-                                                placeholder="Post Title"
-                                                autoFocus
-                                                value={newPostTitle}
-                                                onChange={e => setNewPostTitle(e.target.value)}
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Content</label>
-                                            <textarea
-                                                className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none h-32 resize-none"
-                                                placeholder="What's on your mind?"
-                                                value={newPostContent}
-                                                onChange={e => setNewPostContent(e.target.value)}
-                                            />
-                                        </div>
-                                        <input
-                                            className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none"
-                                            placeholder="e.g. news, update, general"
-                                            value={newPostTags}
-                                            onChange={e => setNewPostTags(e.target.value)}
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Images (Optional)</label>
-                                        <div className="space-y-2">
-                                            {newPostImages.map((img, idx) => (
-                                                <div key={idx} className="flex gap-2">
+                {
+                    activeTab === 'products' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4">
+                            <div className="flex justify-between items-center mb-8">
+                                <h1 className="text-3xl font-bold text-white">Products</h1>
+                                <button
+                                    onClick={() => setEditingProduct({
+                                        title: "", description: "", priceInr: 0, priceOwo: 0,
+                                        category: categories[0]?.name || "", features: [],
+                                        imageUrl: "", images: [], downloadUrl: "", type: "workflow", meta: {}
+                                    })}
+                                    className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-blue-600/20"
+                                >
+                                    <i className="fa-solid fa-plus mr-2"></i> Add Product
+                                </button>
+                            </div>
+
+                            {editingProduct && (
+                                <div className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
+                                    <div className="bg-[#050505] w-full h-full rounded-none md:rounded-2xl border border-gray-800 flex flex-col md:flex-row overflow-hidden shadow-2xl">
+                                        {/* Form */}
+                                        <div className="w-full md:w-[60%] p-6 md:p-8 overflow-y-auto border-b md:border-b-0 md:border-r border-gray-800 custom-scrollbar bg-gray-900/50">
+                                            <h2 className="text-2xl font-bold mb-6 text-white flex items-center gap-3">
+                                                <i className="fa-solid fa-pen-to-square text-violet-500"></i>
+                                                Edit Product
+                                            </h2>
+                                            <div className="space-y-6">
+                                                <div className="space-y-2">
+                                                    <label className="text-xs text-gray-400 font-bold uppercase tracking-wider ml-1">Product Title</label>
                                                     <input
-                                                        className="flex-1 bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none text-sm"
-                                                        placeholder="Image URL"
-                                                        value={img}
-                                                        onChange={e => {
-                                                            const newImgs = [...newPostImages];
-                                                            newImgs[idx] = e.target.value;
-                                                            setNewPostImages(newImgs);
-                                                        }}
+                                                        className="w-full bg-[#0a0a0c] border border-gray-800 rounded-xl p-4 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all placeholder:text-gray-700"
+                                                        value={editingProduct.title}
+                                                        onChange={e => setEditingProduct({ ...editingProduct, title: e.target.value })}
+                                                        placeholder="Enter product title..."
                                                     />
-                                                    <button onClick={() => setNewPostImages(prev => prev.filter((_, i) => i !== idx))} className="text-red-500 hover:bg-red-500/10 p-2 rounded">
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <label className="text-xs text-gray-400 font-bold uppercase tracking-wider ml-1">Description</label>
+                                                    <textarea
+                                                        className="w-full bg-[#0a0a0c] border border-gray-800 rounded-xl p-4 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none h-40 transition-all resize-none placeholder:text-gray-700 leading-relaxed"
+                                                        value={editingProduct.description}
+                                                        onChange={e => setEditingProduct({ ...editingProduct, description: e.target.value })}
+                                                        placeholder="Detailed description of the product..."
+                                                    />
+                                                </div>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                                    <div className="space-y-2">
+                                                        <label className="text-xs text-gray-400 font-bold uppercase tracking-wider ml-1">Price (INR)</label>
+                                                        <div className="relative">
+                                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-mono">₹</span>
+                                                            <input
+                                                                type="number"
+                                                                className="w-full bg-[#0a0a0c] border border-gray-800 rounded-xl p-4 pl-10 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                                                                value={editingProduct.priceInr}
+                                                                onChange={e => setEditingProduct({ ...editingProduct, priceInr: parseInt(e.target.value) })}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-xs text-gray-400 font-bold uppercase tracking-wider ml-1">Price (Owo)</label>
+                                                        <div className="relative">
+                                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-mono">Ø</span>
+                                                            <input
+                                                                type="number"
+                                                                className="w-full bg-[#0a0a0c] border border-gray-800 rounded-xl p-4 pl-10 text-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+                                                                value={editingProduct.priceOwo}
+                                                                onChange={e => setEditingProduct({ ...editingProduct, priceOwo: parseInt(e.target.value) })}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-1">
+                                                        <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Category</label>
+                                                        <select className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none transition" value={editingProduct.category} onChange={e => setEditingProduct({ ...editingProduct, category: e.target.value })}>
+                                                            <option disabled value="">Select Category</option>
+                                                            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                                                        </select>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Type</label>
+                                                        <select className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none transition" value={editingProduct.type} onChange={e => setEditingProduct({ ...editingProduct, type: e.target.value as any })}>
+                                                            <option value="workflow">Workflow</option>
+                                                            <option value="pack">Pack</option>
+                                                            <option value="audio">Audio</option>
+                                                            <option value="other">Other</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-1">
+                                                    <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Main Image URL</label>
+                                                    <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-blue-500 outline-none transition" placeholder="Image URL" value={editingProduct.imageUrl} onChange={e => setEditingProduct({ ...editingProduct, imageUrl: e.target.value })} />
+                                                </div>
+
+                                                <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
+                                                    <label className="text-xs text-gray-400 font-bold uppercase mb-2 block">Upload File</label>
+                                                    <input type="file" className="block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" onChange={handleFileUpload} />
+                                                    <p className="text-xs text-gray-500 mb-2 mt-2">OR enter external URL:</p>
+                                                    <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="https://..." value={editingProduct.downloadUrl || ""} onChange={e => setEditingProduct({ ...editingProduct, downloadUrl: e.target.value })} />
+                                                </div>
+
+                                                <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
+                                                    <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase flex items-center gap-2"><i className="fa-solid fa-images"></i> Additional Images</h3>
+                                                    <div className="space-y-3">
+                                                        {(editingProduct.images || []).map((img, idx) => (
+                                                            <div key={idx} className="flex gap-2">
+                                                                <input
+                                                                    className="flex-1 bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white"
+                                                                    value={img}
+                                                                    onChange={(e) => {
+                                                                        const newImages = [...(editingProduct.images || [])];
+                                                                        newImages[idx] = e.target.value;
+                                                                        setEditingProduct({ ...editingProduct, images: newImages });
+                                                                    }}
+                                                                    placeholder="Image URL"
+                                                                />
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const newImages = (editingProduct.images || []).filter((_, i) => i !== idx);
+                                                                        setEditingProduct({ ...editingProduct, images: newImages });
+                                                                    }}
+                                                                    className="p-2 text-red-500 hover:bg-red-500/10 rounded transition"
+                                                                >
+                                                                    <i className="fa-solid fa-trash"></i>
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                        <button
+                                                            onClick={() => setEditingProduct({ ...editingProduct, images: [...(editingProduct.images || []), ""] })}
+                                                            className="text-sm text-blue-400 font-bold hover:text-white flex items-center gap-2 transition"
+                                                        >
+                                                            <i className="fa-solid fa-plus"></i> Add Image
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Key Features Section */}
+                                                <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
+                                                    <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase flex items-center gap-2"><i className="fa-solid fa-list-check"></i> Key Features</h3>
+                                                    <div className="space-y-3">
+                                                        {(editingProduct.features || []).map((feature, idx) => (
+                                                            <div key={idx} className="flex gap-2">
+                                                                <input
+                                                                    className="flex-1 bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white"
+                                                                    value={feature}
+                                                                    onChange={(e) => {
+                                                                        const newFeatures = [...(editingProduct.features || [])];
+                                                                        newFeatures[idx] = e.target.value;
+                                                                        setEditingProduct({ ...editingProduct, features: newFeatures });
+                                                                    }}
+                                                                    placeholder="Feature description"
+                                                                />
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const newFeatures = (editingProduct.features || []).filter((_, i) => i !== idx);
+                                                                        setEditingProduct({ ...editingProduct, features: newFeatures });
+                                                                    }}
+                                                                    className="p-2 text-red-500 hover:bg-red-500/10 rounded transition"
+                                                                >
+                                                                    <i className="fa-solid fa-trash"></i>
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                        <button
+                                                            onClick={() => setEditingProduct({ ...editingProduct, features: [...(editingProduct.features || []), ""] })}
+                                                            className="text-sm text-emerald-400 font-bold hover:text-emerald-300 flex items-center gap-2 transition"
+                                                        >
+                                                            <i className="fa-solid fa-plus"></i> Add Feature
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                <div className="bg-gray-800/50 p-4 rounded-xl border border-gray-700">
+                                                    <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase flex items-center gap-2"><i className="fa-solid fa-microchip"></i> Metadata (All Fields)</h3>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Node Count (Workflow)" type="number" value={editingProduct.meta?.nodeCount || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, nodeCount: parseInt(e.target.value) } })} />
+                                                        <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Trigger (Workflow)" value={editingProduct.meta?.trigger || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, trigger: e.target.value } })} />
+
+                                                        <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="File Count" type="number" value={editingProduct.meta?.fileCount || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, fileCount: parseInt(e.target.value) } })} />
+                                                        <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Resolution" value={editingProduct.meta?.resolution || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, resolution: e.target.value } })} />
+
+                                                        <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Duration" value={editingProduct.meta?.duration || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, duration: e.target.value } })} />
+                                                        <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Format" value={editingProduct.meta?.format || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, format: e.target.value } })} />
+
+                                                        <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Sample Rate" value={editingProduct.meta?.sampleRate || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, sampleRate: e.target.value } })} />
+                                                        <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Bit Depth" value={editingProduct.meta?.bitDepth || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, bitDepth: e.target.value } })} />
+
+                                                        <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Bitrate" value={editingProduct.meta?.bitrate || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, bitrate: e.target.value } })} />
+                                                        <input className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white" placeholder="Integrations" value={editingProduct.meta?.integrations || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, integrations: e.target.value } })} />
+
+                                                        <div className="col-span-2">
+                                                            <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">JSON Preview (Optional)</label>
+                                                            <textarea className="w-full bg-gray-900 border border-gray-700 rounded p-2 text-sm text-white font-mono h-20" placeholder="{ ... }" value={editingProduct.meta?.jsonPreview || ""} onChange={e => setEditingProduct({ ...editingProduct, meta: { ...editingProduct.meta, jsonPreview: e.target.value } })}></textarea>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex gap-4 pt-6 sticky bottom-0 bg-gray-900/90 backdrop-blur-md p-4 -mx-4 -mb-4 border-t border-gray-800">
+                                                    <button onClick={handleSaveProduct} className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 py-3 rounded-xl font-bold text-white shadow-lg shadow-blue-600/20 transform transition active:scale-95">Save Product</button>
+                                                    <button onClick={() => setEditingProduct(null)} className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold text-white border border-gray-700 transition">Cancel</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {/* Preview */}
+                                        <div className="w-full md:w-[40%] relative bg-[#0a0a0a] flex flex-col h-full hidden md:flex">
+                                            <div className="absolute top-4 right-4 z-50 bg-black/60 backdrop-blur-md text-white px-3 py-1.5 rounded-full border border-white/10 text-xs font-bold uppercase tracking-wider animate-pulse pointer-events-none shadow-lg">
+                                                Live Preview (Small)
+                                            </div>
+                                            <div className="flex-1 overflow-hidden relative">
+                                                <ProductDetail
+                                                    // Create a complete Product object from partial editing data
+                                                    product={{
+                                                        _id: editingProduct._id || "preview_id",
+                                                        id: editingProduct.id || "preview_id",
+                                                        title: editingProduct.title || "Untitled Product",
+                                                        description: editingProduct.description || "No description provided.",
+                                                        features: editingProduct.features || [],
+                                                        priceInr: Number(editingProduct.priceInr) || 0,
+                                                        priceOwo: Number(editingProduct.priceOwo) || 0,
+                                                        category: editingProduct.category || "Uncategorized",
+                                                        imageUrl: editingProduct.imageUrl || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800",
+                                                        images: editingProduct.images || [],
+                                                        downloadUrl: editingProduct.downloadUrl || "",
+                                                        type: editingProduct.type || "other",
+                                                        meta: editingProduct.meta
+                                                    }}
+                                                    user={user}
+                                                    onBack={() => { }}
+                                                    onPurchase={() => { }}
+                                                    previewMode={true}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="space-y-3">
+                                {products.map(p => (
+                                    <div key={p.id} className="bg-gray-900/50 backdrop-blur-sm border border-gray-800 p-4 rounded-xl flex justify-between items-center hover:bg-gray-900 transition-colors group">
+                                        <div className="flex items-center gap-4">
+                                            <img src={p.imageUrl} className="w-16 h-16 rounded-lg object-cover shadow-sm bg-gray-800" />
+                                            <div>
+                                                <h3 className="font-bold text-white text-lg">{p.title}</h3>
+                                                <div className="flex items-center gap-3 mt-1">
+                                                    <span className="text-emerald-400 font-mono font-bold">₹{p.priceInr}</span>
+                                                    <span className="text-gray-600 text-xs px-2 py-0.5 bg-gray-800 rounded uppercase">{p.type}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => setEditingProduct(p)} className="p-2.5 bg-gray-800 text-blue-400 hover:bg-blue-500 hover:text-white rounded-lg transition"><i className="fa-solid fa-pencil"></i></button>
+                                            <button onClick={() => handleDeleteProduct(p.id)} className="p-2.5 bg-gray-800 text-red-400 hover:bg-red-500 hover:text-white rounded-lg transition"><i className="fa-solid fa-trash"></i></button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )
+                }
+
+
+
+                {/* Other tabs rendered with similar improvements */}
+                {
+                    activeTab === 'categories' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4">
+                            <div className="flex justify-between items-center mb-8">
+                                <h1 className="text-3xl font-bold text-white">Categories</h1>
+                                <button onClick={() => setEditingCategory({ name: "", icon: "fa-tag" })} className="bg-violet-600 hover:bg-violet-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-violet-600/20"><i className="fa-solid fa-plus mr-2"></i> Add Category</button>
+                            </div>
+
+                            {editingCategory && (
+                                <div className="bg-gray-900 border border-gray-700 p-6 rounded-2xl mb-8 flex gap-4 items-end shadow-xl">
+                                    <div className="flex-1 space-y-1">
+                                        <label className="text-xs text-gray-500 font-bold uppercase">Name</label>
+                                        <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" value={editingCategory.name} onChange={e => setEditingCategory({ ...editingCategory, name: e.target.value })} />
+                                    </div>
+                                    <div className="flex-1 space-y-1">
+                                        <label className="text-xs text-gray-500 font-bold uppercase">Icon Class</label>
+                                        <input className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white" value={editingCategory.icon} onChange={e => setEditingCategory({ ...editingCategory, icon: e.target.value })} />
+                                    </div>
+                                    <button onClick={handleSaveCategory} className="bg-emerald-600 hover:bg-emerald-500 px-6 py-3 rounded-xl font-bold text-white shadow-lg shadow-emerald-600/20">Save</button>
+                                    <button onClick={() => setEditingCategory(null)} className="bg-gray-800 px-6 py-3 rounded-xl font-bold text-white">Cancel</button>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {categories.map(c => (
+                                    <div key={c.id} className="bg-gray-900 border border-gray-800 p-6 rounded-2xl flex justify-between items-center hover:border-violet-500/50 transition-all group">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-xl bg-gray-800 flex items-center justify-center text-gray-400 group-hover:bg-violet-500 group-hover:text-white transition-colors shadow-lg">
+                                                <i className={`fa-solid ${c.icon}`}></i>
+                                            </div>
+                                            <span className="font-bold text-lg text-white">{c.name}</span>
+                                        </div>
+                                        <button onClick={async () => { if (confirm("Delete?")) { await db.deleteCategory(c.id); refresh(); } }} className="text-gray-500 hover:text-red-500 transition"><i className="fa-solid fa-trash"></i></button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )
+                }
+
+                {
+                    activeTab === 'access' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4">
+                            <div className="flex justify-between items-center mb-8">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-white mb-2">Access Management</h1>
+                                    <p className="text-gray-400 text-sm">Grant or revoke product access for users.</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                {/* Grant Access Form */}
+                                <div className="lg:col-span-1">
+                                    <div className="bg-gray-900 border border-gray-800 p-6 rounded-3xl space-y-6 sticky top-8">
+                                        <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500"><i className="fa-solid fa-key"></i></div>
+                                            Grant New Access
+                                        </h3>
+
+                                        <form onSubmit={(e) => {
+                                            e.preventDefault();
+                                            const form = e.target as HTMLFormElement;
+                                            const userSelect = form.elements.namedItem('userId') as HTMLSelectElement;
+                                            const productSelect = form.elements.namedItem('productId') as HTMLSelectElement;
+                                            handleGrantAccess(userSelect.value, productSelect.value);
+                                            form.reset();
+                                        }} className="space-y-4">
+                                            <div>
+                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Select User</label>
+                                                <select name="userId" className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-emerald-500 outline-none" required>
+                                                    <option value="">-- Choose User --</option>
+                                                    {users.map(u => <option key={u.userId} value={u.userId}>{u.username} ({u.email})</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Select Product</label>
+                                                <select name="productId" className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-emerald-500 outline-none" required>
+                                                    <option value="">-- Choose Product --</option>
+                                                    {products.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                                                </select>
+                                            </div>
+                                            <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold shadow-lg shadow-emerald-600/20 transition-transform active:scale-95">Grant Access</button>
+                                        </form>
+                                    </div>
+                                </div>
+
+                                {/* Permissions List */}
+                                <div className="lg:col-span-2 space-y-4">
+                                    {permissions.length === 0 ? (
+                                        <div className="py-12 flex flex-col items-center justify-center text-gray-500 border border-dashed border-gray-800 rounded-3xl bg-gray-900/20">
+                                            <i className="fa-solid fa-lock-open text-4xl mb-4 opacity-50"></i>
+                                            <p>No active permissions found.</p>
+                                        </div>
+                                    ) : (
+                                        permissions.map((perm, idx) => {
+                                            const user = users.find(u => u.userId === perm.userId);
+                                            const product = products.find(p => p.id === perm.productId);
+                                            if (!user || !product) return null; // cleanup invalid references visually
+
+                                            return (
+                                                <div key={idx} className="bg-gray-900/50 border border-gray-800 p-4 rounded-xl flex items-center justify-between hover:bg-gray-900 transition-colors group">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-10 h-10 rounded-full bg-gray-800 flex items-center justify-center text-gray-400 font-bold">
+                                                            {user.username[0].toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-white">{user.username}</p>
+                                                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                                                                <span>has access to</span>
+                                                                <span className="text-violet-400 font-medium">{product.title}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <button onClick={() => handleRevokeAccess(perm.userId, perm.productId)} className="p-2 text-gray-500 hover:text-red-500 transition-colors rounded-lg hover:bg-red-500/10" title="Revoke Access">
                                                         <i className="fa-solid fa-trash"></i>
                                                     </button>
                                                 </div>
-                                            ))}
-                                            <div className="flex gap-2">
-                                                <button onClick={() => setNewPostImages(prev => [...prev, ""])} className="text-sm text-fuchsia-400 font-bold hover:underline">+ Add Image URL</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-3 pt-4">
-                                        <button onClick={handleCreateForumPost} disabled={!newPostTitle || !newPostContent} className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 py-3 rounded-xl font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed">Post</button>
-                                        <button onClick={() => setIsAddingPost(false)} className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold text-white border border-gray-700">Cancel</button>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )
+                }
+
+                {
+                    activeTab === 'forum' && (
+                        <div className="animate-in fade-in slide-in-from-bottom-4">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-white mb-2">Forum Management</h1>
+                                    <p className="text-gray-400 text-sm">Approve pending posts or manage existing discussions.</p>
+                                </div>
+                                <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                                    <button
+                                        onClick={() => setIsAddingPost(true)}
+                                        className="bg-fuchsia-600 hover:bg-fuchsia-500 text-white px-4 py-2 rounded-xl font-bold shadow-lg shadow-fuchsia-600/20 flex items-center gap-2 text-sm flex-1 md:flex-none justify-center"
+                                    >
+                                        <i className="fa-solid fa-plus"></i> Create Post
+                                    </button>
+                                    <div className="bg-gray-900 border border-gray-800 p-1 rounded-xl flex gap-1 flex-1 md:flex-none">
+                                        <button
+                                            onClick={() => { setForumView('pending'); db.getPendingForumPosts().then(setForumPosts); }}
+                                            className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${forumView === 'pending' ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:text-white'}`}
+                                        >
+                                            Pending
+                                        </button>
+                                        <button
+                                            onClick={() => { setForumView('all'); db.getAllForumPostsAdmin().then(setForumPosts); }}
+                                            className={`flex-1 md:flex-none px-4 py-2 rounded-lg text-sm font-bold transition-all ${forumView === 'all' ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:text-white'}`}
+                                        >
+                                            All Posts
+                                        </button>
                                     </div>
                                 </div>
                             </div>
-                        )}
 
-
-                        <div className="space-y-4">
-                            {forumPosts.length === 0 ? (
-                                <div className="py-12 flex flex-col items-center justify-center text-gray-500 border border-dashed border-gray-800 rounded-3xl bg-gray-900/20">
-                                    <i className="fa-solid fa-comments text-4xl mb-4 opacity-50"></i>
-                                    <p>No {forumView === 'pending' ? 'pending' : ''} forum posts found.</p>
-                                </div>
-                            ) : (
-                                forumPosts.map(post => (
-                                    <div key={post.id} className="bg-gray-900/50 border border-gray-800 p-6 rounded-2xl flex flex-col lg:flex-row gap-6 hover:bg-gray-900 transition relative overflow-hidden group">
-                                        <div className={`absolute left-0 top-0 bottom-0 w-1 ${post.status === 'approved' ? 'bg-emerald-500' : post.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
-                                        <div className="flex-1">
-                                            <div className="flex flex-wrap items-center gap-3 mb-2">
-                                                <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${post.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500' :
-                                                    post.status === 'rejected' ? 'bg-red-500/10 text-red-500' :
-                                                        'bg-yellow-500/10 text-yellow-500'
-                                                    }`}>{post.status}</span>
-                                                <span className="text-xs text-gray-600 lg:ml-auto">{new Date(post.createdAt).toLocaleString()}</span>
+                            {isAddingPost && (
+                                <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+                                    <div className="bg-gray-900 w-full max-w-lg rounded-2xl border border-gray-700 p-6 shadow-2xl relative overflow-hidden">
+                                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-fuchsia-500 to-violet-500"></div>
+                                        <h2 className="text-xl font-bold mb-4 text-white">Create Forum Post</h2>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Title</label>
+                                                <input
+                                                    className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none"
+                                                    placeholder="Post Title"
+                                                    autoFocus
+                                                    value={newPostTitle}
+                                                    onChange={e => setNewPostTitle(e.target.value)}
+                                                />
                                             </div>
-                                            <h3 className="text-xl font-bold text-white mb-2 break-words">{post.title}</h3>
-                                            {post.images && post.images.length > 0 && (
-                                                <div className="mb-4 flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                                                    {post.images.map((img, i) => (
-                                                        <img key={i} src={img} className="h-48 rounded-lg object-cover border border-gray-800" alt="Post attachment" />
-                                                    ))}
-                                                </div>
-                                            )}
-                                            <p className="text-gray-400 mb-4 line-clamp-3 break-words">{post.content}</p>
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                {post.tags.map(tag => (
-                                                    <span key={tag} className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded-lg border border-gray-700">#{tag}</span>
+                                            <div>
+                                                <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Content</label>
+                                                <textarea
+                                                    className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none h-32 resize-none"
+                                                    placeholder="What's on your mind?"
+                                                    value={newPostContent}
+                                                    onChange={e => setNewPostContent(e.target.value)}
+                                                />
+                                            </div>
+                                            <input
+                                                className="w-full bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none"
+                                                placeholder="e.g. news, update, general"
+                                                value={newPostTags}
+                                                onChange={e => setNewPostTags(e.target.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-xs text-gray-500 font-bold uppercase mb-1 block">Images (Optional)</label>
+                                            <div className="space-y-2">
+                                                {newPostImages.map((img, idx) => (
+                                                    <div key={idx} className="flex gap-2">
+                                                        <input
+                                                            className="flex-1 bg-gray-800 border border-gray-700 rounded-xl p-3 text-white focus:border-fuchsia-500 outline-none text-sm"
+                                                            placeholder="Image URL"
+                                                            value={img}
+                                                            onChange={e => {
+                                                                const newImgs = [...newPostImages];
+                                                                newImgs[idx] = e.target.value;
+                                                                setNewPostImages(newImgs);
+                                                            }}
+                                                        />
+                                                        <button onClick={() => setNewPostImages(prev => prev.filter((_, i) => i !== idx))} className="text-red-500 hover:bg-red-500/10 p-2 rounded">
+                                                            <i className="fa-solid fa-trash"></i>
+                                                        </button>
+                                                    </div>
                                                 ))}
-                                                <span className="text-xs text-gray-500 ml-2">by <span className="text-white font-bold">{post.author.username}</span>
-                                                    {!post.author.userId && <span className="ml-1 text-[10px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded uppercase">Guest</span>}
-                                                </span>
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => setNewPostImages(prev => [...prev, ""])} className="text-sm text-fuchsia-400 font-bold hover:underline">+ Add Image URL</button>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="flex flex-row lg:flex-col justify-end lg:justify-center gap-2 lg:border-l lg:border-gray-800 lg:pl-6 min-w-[140px] pt-4 lg:pt-0 border-t border-gray-800 lg:border-t-0">
-                                            {forumView === 'pending' ? (
-                                                <>
-                                                    <button onClick={() => handleForumAction(post.id, 'approved')} className="flex-1 lg:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-emerald-600/20 transition-transform active:scale-95 flex items-center justify-center gap-2">
-                                                        <i className="fa-solid fa-check"></i> Approve
-                                                    </button>
-                                                    <button onClick={() => handleForumAction(post.id, 'rejected')} className="flex-1 lg:flex-none px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold text-xs border border-gray-700 flex items-center justify-center gap-2">
-                                                        <i className="fa-solid fa-xmark"></i> Reject
-                                                    </button>
-                                                </>
-                                            ) : (
-                                                <button onClick={async () => {
-                                                    if (confirm("Permanently delete this post?")) {
-                                                        await db.deleteForumPost(post.id);
-                                                        // Refresh current view
-                                                        const freshPosts = await db.getAllForumPostsAdmin();
-                                                        setForumPosts(freshPosts);
-                                                    }
-                                                }} className="w-full px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2">
-                                                    <i className="fa-solid fa-trash"></i> Delete
-                                                </button>
-                                            )}
+                                        <div className="flex gap-3 pt-4">
+                                            <button onClick={handleCreateForumPost} disabled={!newPostTitle || !newPostContent} className="flex-1 bg-fuchsia-600 hover:bg-fuchsia-500 py-3 rounded-xl font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed">Post</button>
+                                            <button onClick={() => setIsAddingPost(false)} className="px-6 py-3 bg-gray-800 hover:bg-gray-700 rounded-xl font-bold text-white border border-gray-700">Cancel</button>
                                         </div>
                                     </div>
-                                ))
+                                </div>
                             )}
+
+
+                            <div className="space-y-4">
+                                {forumPosts.length === 0 ? (
+                                    <div className="py-12 flex flex-col items-center justify-center text-gray-500 border border-dashed border-gray-800 rounded-3xl bg-gray-900/20">
+                                        <i className="fa-solid fa-comments text-4xl mb-4 opacity-50"></i>
+                                        <p>No {forumView === 'pending' ? 'pending' : ''} forum posts found.</p>
+                                    </div>
+                                ) : (
+                                    forumPosts.map(post => (
+                                        <div key={post.id} className="bg-gray-900/50 border border-gray-800 p-6 rounded-2xl flex flex-col lg:flex-row gap-6 hover:bg-gray-900 transition relative overflow-hidden group">
+                                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${post.status === 'approved' ? 'bg-emerald-500' : post.status === 'rejected' ? 'bg-red-500' : 'bg-yellow-500'}`}></div>
+                                            <div className="flex-1">
+                                                <div className="flex flex-wrap items-center gap-3 mb-2">
+                                                    <span className={`text-xs font-bold uppercase px-2 py-0.5 rounded ${post.status === 'approved' ? 'bg-emerald-500/10 text-emerald-500' :
+                                                        post.status === 'rejected' ? 'bg-red-500/10 text-red-500' :
+                                                            'bg-yellow-500/10 text-yellow-500'
+                                                        }`}>{post.status}</span>
+                                                    <span className="text-xs text-gray-600 lg:ml-auto">{new Date(post.createdAt).toLocaleString()}</span>
+                                                </div>
+                                                <h3 className="text-xl font-bold text-white mb-2 break-words">{post.title}</h3>
+                                                {post.images && post.images.length > 0 && (
+                                                    <div className="mb-4 flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                                                        {post.images.map((img, i) => (
+                                                            <img key={i} src={img} className="h-48 rounded-lg object-cover border border-gray-800" alt="Post attachment" />
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                <p className="text-gray-400 mb-4 line-clamp-3 break-words">{post.content}</p>
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    {post.tags.map(tag => (
+                                                        <span key={tag} className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded-lg border border-gray-700">#{tag}</span>
+                                                    ))}
+                                                    <span className="text-xs text-gray-500 ml-2">by <span className="text-white font-bold">{post.author.username}</span>
+                                                        {!post.author.userId && <span className="ml-1 text-[10px] bg-blue-500/20 text-blue-400 px-1 py-0.5 rounded uppercase">Guest</span>}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-row lg:flex-col justify-end lg:justify-center gap-2 lg:border-l lg:border-gray-800 lg:pl-6 min-w-[140px] pt-4 lg:pt-0 border-t border-gray-800 lg:border-t-0">
+                                                {forumView === 'pending' ? (
+                                                    <>
+                                                        <button onClick={() => handleForumAction(post.id, 'approved')} className="flex-1 lg:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-xs shadow-lg shadow-emerald-600/20 transition-transform active:scale-95 flex items-center justify-center gap-2">
+                                                            <i className="fa-solid fa-check"></i> Approve
+                                                        </button>
+                                                        <button onClick={() => handleForumAction(post.id, 'rejected')} className="flex-1 lg:flex-none px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-xl font-bold text-xs border border-gray-700 flex items-center justify-center gap-2">
+                                                            <i className="fa-solid fa-xmark"></i> Reject
+                                                        </button>
+                                                    </>
+                                                ) : (
+                                                    <button onClick={async () => {
+                                                        if (confirm("Permanently delete this post?")) {
+                                                            await db.deleteForumPost(post.id);
+                                                            // Refresh current view
+                                                            const freshPosts = await db.getAllForumPostsAdmin();
+                                                            setForumPosts(freshPosts);
+                                                        }
+                                                    }} className="w-full px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border border-red-500/20 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2">
+                                                        <i className="fa-solid fa-trash"></i> Delete
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
                         </div>
-                    </div>
-                )
+                    )
                 }
 
                 {

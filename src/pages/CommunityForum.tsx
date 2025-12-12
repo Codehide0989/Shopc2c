@@ -146,7 +146,7 @@ const CommunityForum: React.FC<CommunityForumProps> = ({ onNavigate, user, setti
                             <div
                                 key={post.id}
                                 onClick={() => onNavigate('community-post', post.id)}
-                                className="group relative bg-[#13131a]/80 backdrop-blur-xl border border-white/5 hover:border-blue-500/30 rounded-3xl p-6 md:p-8 cursor-pointer transition-all duration-300 hover:shadow-[0_0_40px_rgba(59,130,246,0.1)] hover:-translate-y-1 overflow-hidden"
+                                className="group relative bg-[#13131a]/80 backdrop-blur-xl border border-white/5 hover:border-blue-500/30 rounded-3xl p-6 cursor-pointer transition-all duration-300 hover:shadow-[0_0_40px_rgba(59,130,246,0.1)] hover:-translate-y-1 overflow-hidden"
                                 style={{ animationDelay: `${idx * 50}ms` }}
                             >
                                 {/* Hover Glow Gradient */}
@@ -155,67 +155,75 @@ const CommunityForum: React.FC<CommunityForumProps> = ({ onNavigate, user, setti
                                 {/* Top Glow Line */}
                                 <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-blue-500/50 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-700"></div>
 
-                                <div className="flex flex-col md:flex-row gap-6 md:items-start relative z-10">
-                                    {/* Vote Counter */}
-                                    <div
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleLike(post);
-                                        }}
-                                        className={`hidden md:flex flex-col items-center gap-1 rounded-2xl p-3 border min-w-[70px] transition-colors z-20 cursor-pointer ${post.likedBy?.includes(user?.userId || '')
-                                            ? 'bg-blue-500/20 border-blue-500/50'
-                                            : 'bg-gray-900/50 border-white/5 group-hover:border-blue-500/20'
-                                            }`}
-                                    >
-                                        <ThumbsUp
-                                            size={20}
-                                            className={`transition-colors ${post.likedBy?.includes(user?.userId || '')
-                                                ? 'text-blue-400 fill-blue-400/20'
-                                                : 'text-gray-500 group-hover:text-blue-400'
+                                <div className="flex flex-col md:flex-row gap-6 relative z-10">
+                                    {/* Vote Counter - Responsive */}
+                                    <div className="flex md:flex-col items-center justify-between md:justify-start gap-4 md:gap-2 rounded-2xl p-3 border border-white/5 bg-gray-900/30 md:min-w-[70px]">
+                                        <div
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleLike(post);
+                                            }}
+                                            className={`flex md:flex-col items-center gap-2 p-2 rounded-xl transition-all ${post.likedBy?.includes(user?.userId || '')
+                                                ? 'text-blue-400 bg-blue-500/10'
+                                                : 'text-gray-500 hover:text-blue-400 hover:bg-white/5'
                                                 }`}
-                                        />
-                                        <span className={`font-bold text-lg ${post.likedBy?.includes(user?.userId || '') ? 'text-blue-100' : 'text-white'}`}>
-                                            {post.likes}
-                                        </span>
+                                        >
+                                            <ThumbsUp size={18} className={post.likedBy?.includes(user?.userId || '') ? 'fill-blue-400/20' : ''} />
+                                            <span className={`font-bold text-sm ${post.likedBy?.includes(user?.userId || '') ? 'text-blue-100' : 'text-gray-400'}`}>
+                                                {post.likes}
+                                            </span>
+                                        </div>
+
+                                        <div className="h-4 w-[1px] md:w-4 md:h-[1px] bg-white/10"></div>
+
+                                        <div className="flex md:flex-col items-center gap-2 text-gray-500 p-2">
+                                            <MessageSquare size={18} />
+                                            <span className="font-bold text-sm">{post.replies?.length || 0}</span>
+                                        </div>
                                     </div>
 
-                                    <div className="flex-1">
-                                        <div className="flex flex-wrap items-center gap-3 mb-4">
-                                            {post.tags.map((tag, i) => (
-                                                <div key={i} className="flex items-center gap-1 px-3 py-1 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 text-xs font-bold uppercase tracking-wider rounded-lg border border-blue-500/20 transition-colors">
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex flex-wrap items-center gap-3 mb-3">
+                                            {post.tags.slice(0, 3).map((tag, i) => (
+                                                <div key={i} className="flex items-center gap-1.5 px-3 py-1 bg-blue-500/5 text-blue-400 border border-blue-500/10 text-[10px] font-bold uppercase tracking-wider rounded-full">
                                                     <Tag size={10} />
                                                     {tag}
                                                 </div>
                                             ))}
-                                            <span className="text-gray-600 text-xs">•</span>
-                                            <span className="text-gray-500 text-xs font-medium">{new Date(post.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                            <span className="text-gray-600 text-[10px] font-mono uppercase tracking-widest">
+                                                {new Date(post.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                                            </span>
                                         </div>
 
-                                        <h3 className="text-2xl font-bold mb-3 text-white group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-400 group-hover:to-fuchsia-400 transition-all line-clamp-2 leading-tight">
+                                        <h3 className="text-xl md:text-2xl font-bold mb-3 text-white group-hover:text-blue-400 transition-colors line-clamp-2 leading-tight">
                                             {post.title}
                                         </h3>
-                                        <p className="text-gray-400 line-clamp-2 mb-6 leading-relaxed text-base font-light pl-1">
+                                        <p className="text-gray-300 line-clamp-2 mb-6 leading-relaxed text-sm md:text-base font-normal">
                                             {post.content}
                                         </p>
 
                                         <div className="flex items-center justify-between pt-4 mt-auto border-t border-white/5">
                                             <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-xs font-bold text-white shadow-inner ring-1 ring-white/10">
+                                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 flex items-center justify-center text-xs font-bold text-white shadow-lg ring-2 ring-gray-900">
                                                     {post.author.username[0].toUpperCase()}
                                                 </div>
-                                                <span className="text-sm font-medium text-gray-300 group-hover:text-white transition-colors">
+                                                <span className="text-sm font-bold text-gray-300 group-hover:text-white transition-colors">
                                                     {post.author.username}
                                                 </span>
                                             </div>
 
-                                            <div className="flex items-center gap-4 text-sm text-gray-500">
-                                                <div className="flex items-center gap-2 group-hover:text-blue-400 transition-colors bg-white/5 px-3 py-1.5 rounded-lg">
-                                                    <MessageSquare size={16} />
-                                                    <span className="font-medium">{post.replies?.length || 0} <span className="hidden sm:inline">Comments</span></span>
-                                                </div>
-                                            </div>
+                                            <button className="hidden sm:flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-blue-400 opacity-0 group-hover:opacity-100 transform translate-x-4 group-hover:translate-x-0 transition-all duration-300">
+                                                View Discussion <i className="fa-solid fa-arrow-right"></i>
+                                            </button>
                                         </div>
                                     </div>
+                                </div>
+
+                                {/* Mobile View Link (Always visible on small screens) */}
+                                <div className="mt-4 pt-4 border-t border-white/5 flex sm:hidden justify-end">
+                                    <span className="text-xs font-bold uppercase tracking-widest text-blue-400 flex items-center gap-2">
+                                        View Discussion <i className="fa-solid fa-arrow-right"></i>
+                                    </span>
                                 </div>
                             </div>
 

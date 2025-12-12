@@ -16,6 +16,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
     const [hasReviewed, setHasReviewed] = useState(false);
     const [discordLink, setDiscordLink] = useState("");
     const [currentImage, setCurrentImage] = useState(product.imageUrl);
+    const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
 
     useEffect(() => {
         setCurrentImage(product.imageUrl);
@@ -34,9 +35,13 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
             }
             const settings = await db.getSettings();
             setDiscordLink(settings.discordLink);
+
+            // Load related products (simple fetch for now, can be random or same category)
+            const allProducts = await db.getProducts();
+            setRelatedProducts(allProducts.filter(p => p.id !== product.id && p.category === product.category).slice(0, 3));
         };
         loadData();
-    }, [product.id, user, previewMode]);
+    }, [product.id, user, previewMode, product.category]);
     const [newReview, setNewReview] = useState({ rating: 5, comment: "" });
     const [submitted, setSubmitted] = useState(false);
 
@@ -102,7 +107,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
     return (
         <div className={`bg-[#050505] ${previewMode ? 'h-full overflow-y-auto custom-scrollbar' : 'min-h-screen pb-20'}`}>
             {/* Cinematic Header Backdrop */}
-            <div className={`relative w-full overflow-hidden group ${previewMode ? 'h-[40vh]' : 'h-[70vh]'}`}>
+            <div className={`relative w-full overflow-hidden group ${previewMode ? 'h-[40vh]' : 'h-[60vh] md:h-[75vh]'}`}>
                 <div className="absolute inset-0">
                     <img
                         src={currentImage}
@@ -110,35 +115,35 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
                         onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=800"; }}
                         className="w-full h-full object-cover blur-sm opacity-40 scale-105 group-hover:scale-110 transition duration-[20s] ease-linear"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/80 to-transparent"></div>
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#050505] via-[#050505]/60 to-transparent"></div>
                     <div className="absolute inset-0 bg-gradient-to-b from-[#050505]/50 to-transparent"></div>
                 </div>
                 <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
 
-                <div className={`absolute left-0 w-full px-4 md:px-8 max-w-7xl mx-auto h-full flex flex-col justify-center ${previewMode ? 'top-0 pb-10' : 'top-24 pb-32'}`}>
+                <div className={`absolute left-0 w-full px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto h-full flex flex-col justify-end pb-20 md:pb-32 ${previewMode ? 'pb-10' : ''}`}>
                     {!previewMode && (
-                        <button onClick={onBack} className="absolute top-0 left-4 md:left-8 mb-8 text-gray-400 hover:text-white flex items-center text-sm font-bold transition bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/5 hover:border-white/20 w-fit group/back">
+                        <button onClick={onBack} className="absolute top-24 left-4 md:left-8 text-gray-400 hover:text-white flex items-center text-sm font-bold transition bg-black/40 backdrop-blur-md px-4 py-2 rounded-full border border-white/5 hover:border-white/20 w-fit group/back z-20">
                             <i className="fa-solid fa-arrow-left mr-2 group-hover/back:-translate-x-1 transition"></i> Back to Store
                         </button>
                     )}
 
-                    <div className="max-w-4xl animate-in fade-in slide-in-from-bottom-8 duration-700">
-                        <div className="flex flex-wrap gap-3 mb-6">
-                            <span className="bg-violet-500/20 backdrop-blur-md text-violet-200 border border-violet-500/30 text-xs px-4 py-1.5 rounded-full uppercase font-bold tracking-wider shadow-[0_0_15px_rgba(139,92,246,0.2)]">
+                    <div className="max-w-4xl animate-in fade-in slide-in-from-bottom-8 duration-700 relative z-10">
+                        <div className="flex flex-wrap gap-3 mb-4 md:mb-6">
+                            <span className="bg-violet-500/20 backdrop-blur-md text-violet-200 border border-violet-500/30 text-[10px] md:text-xs px-3 md:px-4 py-1.5 rounded-full uppercase font-bold tracking-wider shadow-[0_0_15px_rgba(139,92,246,0.2)]">
                                 {product.type}
                             </span>
-                            <span className="bg-white/5 backdrop-blur-md text-gray-300 border border-white/10 text-xs px-4 py-1.5 rounded-full uppercase font-bold tracking-wider">
+                            <span className="bg-white/5 backdrop-blur-md text-gray-300 border border-white/10 text-[10px] md:text-xs px-3 md:px-4 py-1.5 rounded-full uppercase font-bold tracking-wider">
                                 {product.category}
                             </span>
                         </div>
 
-                        <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-black text-white mb-6 leading-tight drop-shadow-2xl tracking-tight">
+                        <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-black text-white mb-4 md:mb-6 leading-tight drop-shadow-2xl tracking-tight">
                             {product.title}
                         </h1>
 
-                        <div className="flex items-center gap-6 text-sm">
+                        <div className="flex items-center gap-4 md:gap-6 text-xs md:text-sm">
                             <div className="flex items-center gap-2 bg-black/30 backdrop-blur px-3 py-1.5 rounded-lg border border-white/5">
-                                <div className="flex text-yellow-400 text-xs">
+                                <div className="flex text-yellow-400 text-[10px] md:text-xs">
                                     {[...Array(5)].map((_, i) => (
                                         <i key={i} className={`fa-solid fa-star ${i < 4 ? "" : "text-gray-600"}`}></i>
                                     ))}
@@ -156,21 +161,21 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
                 </div>
             </div>
 
-            <div className={`max-w-7xl mx-auto px-4 md:px-8 ${previewMode ? '-mt-10' : '-mt-32'} relative z-10`}>
+            <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${previewMode ? '-mt-6' : '-mt-20 md:-mt-32'} relative z-10`}>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
                     {/* Main Content */}
                     <div className="lg:col-span-2 space-y-8">
                         {/* Navigation Tabs */}
-                        <div className="flex gap-2 p-1 bg-gray-900/80 backdrop-blur-xl rounded-xl border border-gray-800 w-fit">
+                        <div className="flex gap-2 p-1 bg-gray-900/80 backdrop-blur-xl rounded-xl border border-gray-800 w-full md:w-fit overflow-x-auto">
                             <button
                                 onClick={() => setActiveTab('overview')}
-                                className={`px-6 py-2.5 text-sm font-bold transition rounded-lg flex items-center gap-2 ${activeTab === 'overview' ? 'bg-gray-800 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}`}
+                                className={`flex-1 md:flex-none px-6 py-2.5 text-sm font-bold transition rounded-lg flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === 'overview' ? 'bg-gray-800 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}`}
                             >
                                 <i className="fa-solid fa-circle-info"></i> Overview
                             </button>
                             <button
                                 onClick={() => setActiveTab('reviews')}
-                                className={`px-6 py-2.5 text-sm font-bold transition rounded-lg flex items-center gap-2 ${activeTab === 'reviews' ? 'bg-gray-800 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}`}
+                                className={`flex-1 md:flex-none px-6 py-2.5 text-sm font-bold transition rounded-lg flex items-center justify-center gap-2 whitespace-nowrap ${activeTab === 'reviews' ? 'bg-gray-800 text-white shadow-lg' : 'text-gray-400 hover:text-white hover:bg-gray-800/50'}`}
                             >
                                 <i className="fa-solid fa-star"></i> Reviews
                             </button>
@@ -181,11 +186,11 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
                                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                     {/* Image Gallery */}
                                     {(product.images && product.images.length > 0) && (
-                                        <div className="glass-panel p-6 rounded-2xl border border-gray-800 bg-[#0a0a0a]/80 backdrop-blur-xl">
-                                            <h3 className="text-xl font-display font-bold text-white mb-4 flex items-center gap-3">
+                                        <div className="glass-panel p-4 md:p-6 rounded-2xl border border-gray-800 bg-[#0a0a0a]/80 backdrop-blur-xl">
+                                            <h3 className="text-lg md:text-xl font-display font-bold text-white mb-4 flex items-center gap-3">
                                                 <i className="fa-solid fa-images text-fuchsia-500"></i> Gallery
                                             </h3>
-                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                                                 <button
                                                     onClick={() => setCurrentImage(product.imageUrl)}
                                                     className={`relative group aspect-video rounded-xl overflow-hidden border-2 transition-all duration-300 ${currentImage === product.imageUrl ? 'border-fuchsia-500 shadow-[0_0_20px_rgba(232,121,249,0.5)] scale-[1.02] z-10' : 'border-gray-800 hover:border-gray-600 opacity-70 hover:opacity-100 hover:scale-105'}`}
@@ -207,33 +212,33 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
                                         </div>
                                     )}
 
-                                    <div className="glass-panel p-8 rounded-2xl border border-gray-800 bg-[#0a0a0a]/80 backdrop-blur-xl">
-                                        <h3 className="text-2xl font-display font-bold text-white mb-6 flex items-center gap-3">
+                                    <div className="glass-panel p-8 md:p-10 rounded-2xl border border-gray-800 bg-[#0a0a0a]/80 backdrop-blur-xl">
+                                        <h3 className="text-xl md:text-2xl font-display font-bold text-white mb-6 flex items-center gap-3">
                                             <i className="fa-solid fa-align-left text-violet-500"></i> Description
                                         </h3>
                                         <div className="prose prose-invert max-w-none">
-                                            <p className="text-gray-300 leading-relaxed text-lg font-light">{product.description}</p>
+                                            <p className="text-gray-200 leading-relaxed text-base md:text-lg font-normal">{product.description}</p>
                                         </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div className="glass-panel p-8 rounded-2xl border border-gray-800 bg-[#0a0a0a]/80 backdrop-blur-xl">
-                                            <h3 className="text-xl font-display font-bold text-white mb-6 flex items-center gap-3">
+                                        <div className="glass-panel p-8 md:p-10 rounded-2xl border border-gray-800 bg-[#0a0a0a]/80 backdrop-blur-xl">
+                                            <h3 className="text-lg md:text-xl font-display font-bold text-white mb-6 flex items-center gap-3">
                                                 <i className="fa-solid fa-list-check text-emerald-500"></i> Key Features
                                             </h3>
                                             <ul className="space-y-4">
                                                 {product.features.map((f, i) => (
-                                                    <li key={i} className="flex items-start gap-3 text-gray-300">
-                                                        <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
-                                                        <span className="flex-1">{f}</span>
+                                                    <li key={i} className="flex items-start gap-3 text-gray-200">
+                                                        <div className="mt-2 w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)] flex-shrink-0"></div>
+                                                        <span className="flex-1 text-base md:text-lg">{f}</span>
                                                     </li>
                                                 ))}
                                             </ul>
                                         </div>
 
                                         {product.meta && (
-                                            <div className="glass-panel p-8 rounded-2xl border border-gray-800 bg-[#0a0a0a]/80 backdrop-blur-xl">
-                                                <h3 className="text-xl font-display font-bold text-white mb-6 flex items-center gap-3">
+                                            <div className="glass-panel p-6 md:p-8 rounded-2xl border border-gray-800 bg-[#0a0a0a]/80 backdrop-blur-xl">
+                                                <h3 className="text-lg md:text-xl font-display font-bold text-white mb-6 flex items-center gap-3">
                                                     <i className="fa-solid fa-microchip text-blue-500"></i> Technical Specs
                                                 </h3>
                                                 <div className="space-y-4">
@@ -247,6 +252,28 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
                                             </div>
                                         )}
                                     </div>
+
+                                    {/* Related Products Section */}
+                                    {relatedProducts.length > 0 && (
+                                        <div className="pt-8 border-t border-gray-800">
+                                            <h3 className="text-2xl font-display font-bold text-white mb-6">Related Products</h3>
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                {relatedProducts.map(rp => (
+                                                    <div key={rp.id} className="group flex flex-col gap-3 cursor-pointer" onClick={() => window.location.href = `/product/${rp.id}`}>
+                                                        <div className="aspect-video rounded-xl bg-gray-900 border border-gray-800 overflow-hidden relative">
+                                                            <img src={rp.imageUrl} alt={rp.title} className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-110 transition duration-500" />
+                                                            <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent opacity-60"></div>
+                                                            <div className="absolute bottom-2 left-2 right-2">
+                                                                <p className="text-white font-bold text-sm truncate">{rp.title}</p>
+                                                                <p className="text-gray-400 text-xs">{rp.category}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
                                 </div>
                             ) : (
                                 <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -368,10 +395,10 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
                                         <div>
                                             <p className="text-gray-400 text-xs uppercase font-bold tracking-widest mb-1">Total Price</p>
                                             {product.priceInr === 0 ? (
-                                                <span className="text-5xl font-display font-bold text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.4)]">Free</span>
+                                                <span className="text-4xl md:text-5xl font-display font-bold text-emerald-400 drop-shadow-[0_0_15px_rgba(52,211,153,0.4)]">Free</span>
                                             ) : (
                                                 <div className="flex flex-col">
-                                                    <span className="text-4xl font-display font-bold text-white">₹{product.priceInr}</span>
+                                                    <span className="text-3xl md:text-4xl font-display font-bold text-white">₹{product.priceInr}</span>
                                                     <span className="text-xs text-gray-500 font-mono mt-1">≈ {product.priceOwo.toLocaleString()} Owo</span>
                                                 </div>
                                             )}

@@ -82,7 +82,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, onClick }) => {
                 <h3 className="text-xl font-display font-bold text-white mb-2 leading-tight group-hover:text-violet-400 transition-colors duration-300">
                     {product.title}
                 </h3>
-                <p className="text-gray-400 text-sm line-clamp-2 mb-6 h-10 font-light leading-relaxed">
+                <p className="text-gray-300 text-sm line-clamp-2 mb-6 h-10 font-normal leading-relaxed">
                     {product.description}
                 </p>
 

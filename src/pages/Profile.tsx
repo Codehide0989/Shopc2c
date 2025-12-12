@@ -48,6 +48,39 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
         fetchData();
     }, [user.userId]);
 
+    // Countdown Timer Logic
+    const [timeLeft, setTimeLeft] = useState<{ d: number; h: number; m: number; s: number; ms: number }>({
+        d: 48, h: 1, m: 39, s: 27, ms: 0
+    });
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setTimeLeft(prev => {
+                let { d, h, m, s, ms } = prev;
+                if (ms > 0) ms--;
+                else {
+                    ms = 99;
+                    if (s > 0) s--;
+                    else {
+                        s = 59;
+                        if (m > 0) m--;
+                        else {
+                            m = 59;
+                            if (h > 0) h--;
+                            else {
+                                h = 23;
+                                if (d > 0) d--;
+                                // Stop at 0
+                            }
+                        }
+                    }
+                }
+                return { d, h, m, s, ms };
+            });
+        }, 10);
+        return () => clearInterval(timer);
+    }, []);
+
     const joinDate = new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
     if (loading) {
@@ -64,39 +97,82 @@ const Profile: React.FC<ProfileProps> = ({ user }) => {
             <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-violet-600/10 rounded-full blur-[128px] pointer-events-none"></div>
 
             <div className="max-w-7xl mx-auto relative z-10">
-                {/* Header Section */}
-                <div className="flex flex-col md:flex-row items-end gap-8 mb-16 animate-in fade-in slide-in-from-bottom-8 duration-700">
-                    <div className="relative group mx-auto md:mx-0">
-                        <div className="absolute -inset-1 bg-gradient-to-r from-violet-600 to-fuchsia-600 rounded-full blur opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
-                        <div className="relative w-32 h-32 rounded-full bg-[#0a0a0a] flex items-center justify-center text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400 border-4 border-[#0a0a0a]">
-                            {user.username[0].toUpperCase()}
-                        </div>
-                        <div className="absolute bottom-0 right-0 w-8 h-8 bg-emerald-500 rounded-full border-4 border-[#0a0a0a]" title="Online"></div>
-                    </div>
+                {/* Member Card Section */}
+                <div className="flex justify-center mb-16 animate-in fade-in slide-in-from-bottom-8 duration-700">
+                    <div className="relative w-full max-w-[480px] aspect-[1.586/1] bg-[#0a0a0a] rounded-[2rem] overflow-hidden shadow-2xl shadow-violet-900/20 border border-white/10 group select-none transition-all duration-500 hover:scale-[1.02] hover:shadow-violet-900/30">
+                        {/* Card Background Effects */}
+                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-40 mix-blend-overlay"></div>
+                        <div className="absolute -top-32 -right-32 w-80 h-80 bg-violet-600/30 rounded-full blur-[100px] group-hover:bg-violet-600/40 transition duration-1000"></div>
+                        <div className="absolute -bottom-32 -left-32 w-80 h-80 bg-fuchsia-600/30 rounded-full blur-[100px] group-hover:bg-fuchsia-600/40 transition duration-1000"></div>
 
-                    <div className="flex-1 mb-2 text-center md:text-left">
-                        <h1 className="text-4xl md:text-5xl font-display font-black text-white mb-2 tracking-tight">{user.username}</h1>
-                        <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 text-gray-400 text-sm justify-center md:justify-start">
-                            <span className="flex items-center gap-2"><i className="fa-solid fa-envelope"></i> {user.email}</span>
-                            <span className="hidden md:inline w-1 h-1 bg-gray-700 rounded-full"></span>
-                            <span className="flex items-center gap-2"><i className="fa-solid fa-calendar"></i> Joined {joinDate}</span>
+                        {/* Chip */}
+                        <div className="absolute top-8 right-8 w-14 h-11 bg-gradient-to-br from-yellow-100 to-yellow-600 rounded-lg shadow-lg shadow-yellow-900/20 flex items-center justify-center overflow-hidden border border-yellow-400/50 z-20">
+                            <div className="w-full h-[1px] bg-yellow-800/20 absolute top-1/3"></div>
+                            <div className="w-full h-[1px] bg-yellow-800/20 absolute bottom-1/3"></div>
+                            <div className="h-full w-[1px] bg-yellow-800/20 absolute left-1/3"></div>
+                            <div className="h-full w-[1px] bg-yellow-800/20 absolute right-1/3"></div>
+                            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/40 to-transparent"></div>
                         </div>
-                    </div>
 
-                    <div className="flex gap-4 w-full md:w-auto justify-center">
-                        <div className="bg-gray-900/50 backdrop-blur border border-gray-800 p-4 rounded-2xl min-w-[140px] flex-1 md:flex-none text-center md:text-left">
-                            <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Total Assets</p>
-                            <p className="text-3xl font-display font-bold text-white">{myAssets.length}</p>
-                        </div>
-                        <div className="bg-gray-900/50 backdrop-blur border border-gray-800 p-4 rounded-2xl min-w-[140px] flex-1 md:flex-none text-center md:text-left">
-                            <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">User ID</p>
-                            <div className="flex items-center justify-center md:justify-start gap-2">
-                                <p className="font-mono text-violet-400 font-bold truncate max-w-[100px]">{user.userId}</p>
-                                <button onClick={() => { navigator.clipboard.writeText(user.userId); alert("ID Copied!"); }} className="text-gray-500 hover:text-white transition"><i className="fa-regular fa-copy"></i></button>
+                        {/* Card Content */}
+                        <div className="relative h-full p-6 sm:p-8 flex flex-col justify-between z-10">
+                            {/* Top Row */}
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h2 className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-gray-200 to-gray-400 tracking-tighter uppercase font-display italic">
+                                        SHOP C2C
+                                    </h2>
+                                    <p className="text-[10px] font-bold tracking-[0.3em] text-violet-400 uppercase mt-1">Premium Member</p>
+                                </div>
+                            </div>
+
+                            {/* Middle Row - User Info */}
+                            <div className="flex items-center gap-5 sm:gap-6 mt-4">
+                                <div className="relative group/avatar">
+                                    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-gray-800 to-black border border-gray-700/50 flex items-center justify-center text-3xl font-bold text-gray-500 overflow-hidden shadow-inner ring-2 ring-transparent group-hover/avatar:ring-violet-500/50 transition-all duration-300">
+                                        <span className="bg-gradient-to-br from-violet-400 to-fuchsia-400 bg-clip-text text-transparent transform group-hover/avatar:scale-110 transition duration-500">
+                                            {user.username[0].toUpperCase()}
+                                        </span>
+                                    </div>
+                                    <button className="absolute -bottom-1 -right-1 w-7 h-7 bg-white text-black rounded-full shadow-lg flex items-center justify-center text-xs hover:bg-gray-200 transition-colors duration-200">
+                                        <i className="fa-solid fa-camera"></i>
+                                    </button>
+                                </div>
+
+                                <div className="flex-1 min-w-0">
+                                    <h1 className="text-xl sm:text-3xl font-bold text-white tracking-tight mb-1 truncate">{user.username}</h1>
+                                    <div className="flex flex-col gap-0.5">
+                                        <p className="text-[10px] sm:text-xs font-mono text-gray-400 tracking-wider">ID: <span className="text-gray-300">{user.userId.substring(0, 8).toUpperCase()}</span></p>
+                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Since {joinDate}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Bottom Row - Valid Thru & Badge */}
+                            <div className="flex justify-between items-end mt-4">
+                                <div>
+                                    <p className="text-[9px] sm:text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1.5">Offer Expires In</p>
+                                    <div className="font-mono text-lg sm:text-2xl font-bold text-white tracking-widest flex gap-1.5 sm:gap-2 items-baseline text-shadow-glow">
+                                        <span className="tabular-nums">{timeLeft.d.toString().padStart(2, '0')}</span>
+                                        <span className="text-violet-500 animate-pulse">:</span>
+                                        <span className="tabular-nums">{timeLeft.h.toString().padStart(2, '0')}</span>
+                                        <span className="text-violet-500 animate-pulse">:</span>
+                                        <span className="tabular-nums">{timeLeft.m.toString().padStart(2, '0')}</span>
+                                        <span className="text-violet-500 animate-pulse">:</span>
+                                        <span className="tabular-nums">{timeLeft.s.toString().padStart(2, '0')}</span>
+                                    </div>
+                                </div>
+                                <div className="hidden sm:block">
+                                    <div className="bg-white/5 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                        <p className="text-[10px] font-black text-white uppercase tracking-widest">Active</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
+
 
                 {/* Library Section */}
                 <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100">
