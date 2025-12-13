@@ -137,7 +137,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
                             </span>
                         </div>
 
-                        <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-black text-white mb-4 md:mb-6 leading-tight drop-shadow-2xl tracking-tight">
+                        <h1 className="text-3xl md:text-6xl lg:text-7xl font-display font-black text-white mb-4 md:mb-6 leading-tight drop-shadow-2xl tracking-tight">
                             {product.title}
                         </h1>
 
@@ -161,7 +161,7 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
                 </div>
             </div>
 
-            <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${previewMode ? '-mt-6' : '-mt-20 md:-mt-32'} relative z-10`}>
+            <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${previewMode ? '-mt-6' : '-mt-10 md:-mt-32'} relative z-10`}>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 lg:gap-12">
                     {/* Main Content */}
                     <div className="lg:col-span-2 space-y-8">

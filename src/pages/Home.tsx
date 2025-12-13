@@ -88,15 +88,7 @@ const Home: React.FC<HomeProps> = ({ products, categories, onProductClick }) => 
                                 {cat.name}
                             </button>
                         ))}
-                        {/* Static Discord Bots button if not in categories */}
-                        {!categories.find(c => c.name === "Discord Bots") && (
-                            <button
-                                className="px-6 py-3 rounded-xl font-bold transition-all duration-300 border bg-[#0a0a0a]/50 text-gray-400 border-white/5 hover:bg-[#0a0a0a]/80 hover:border-white/20 hover:text-white flex items-center gap-2 backdrop-blur-md"
-                            >
-                                <i className="fa-brands fa-discord"></i>
-                                Discord Bots
-                            </button>
-                        )}
+
                     </div>
                 </div>
             </div>

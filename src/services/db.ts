@@ -268,6 +268,30 @@ class DatabaseAdapter {
         }
     }
 
+    onProductsUpdate(callback: (products: Product[]) => void) {
+        this.socket?.on('products_update', callback);
+    }
+
+    offProductsUpdate(callback?: (products: Product[]) => void) {
+        if (callback) {
+            this.socket?.off('products_update', callback);
+        } else {
+            this.socket?.off('products_update');
+        }
+    }
+
+    onCategoriesUpdate(callback: (categories: Category[]) => void) {
+        this.socket?.on('categories_update', callback);
+    }
+
+    offCategoriesUpdate(callback?: (categories: Category[]) => void) {
+        if (callback) {
+            this.socket?.off('categories_update', callback);
+        } else {
+            this.socket?.off('categories_update');
+        }
+    }
+
     async deleteMessage(id: string) {
         await fetch(`${this.apiUrl}/chat/message/${id}`, {
             method: 'DELETE'

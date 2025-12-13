@@ -59,6 +59,22 @@ const App = () => {
 
     useEffect(() => {
         loadData();
+
+        const handleCategoryUpdate = (newCats: Category[]) => {
+            setCategories(newCats);
+        };
+
+        const handleProductUpdate = (newProds: Product[]) => {
+            setProducts(newProds);
+        };
+
+        db.onCategoriesUpdate(handleCategoryUpdate);
+        db.onProductsUpdate(handleProductUpdate);
+
+        return () => {
+            db.offCategoriesUpdate(handleCategoryUpdate);
+            db.offProductsUpdate(handleProductUpdate);
+        };
     }, []);
 
     const handleUserLogin = (u: User) => {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { db } from "../services/db";
-import { ChatMessage, User } from "../types";
+import { ChatMessage, User, AppSettings } from "../types";
 
 interface CommunityChatProps {
     user: User;
@@ -12,22 +12,37 @@ const CommunityChat: React.FC<CommunityChatProps> = ({ user }) => {
     const [newMessage, setNewMessage] = useState("");
     const [error, setError] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-    const settings = db.getSettings();
+    const [settings, setSettings] = useState<AppSettings | null>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     };
 
     useEffect(() => {
+        const loadSettings = async () => {
+            const s = await db.getSettings();
+            setSettings(s);
+        };
+        loadSettings();
+    }, []);
+
+    useEffect(() => {
         if (isOpen) {
             scrollToBottom();
-            const interval = setInterval(() => {
-                const msgs = db.getMessages();
+            const fetchMessages = async () => {
+                const msgs = await db.getMessages();
                 setMessages(prev => {
                     if (prev.length !== msgs.length) return msgs;
+                    // Check if last message is different to avoid unnecessary updates
+                    if (prev.length > 0 && msgs.length > 0 && prev[prev.length - 1].id !== msgs[msgs.length - 1].id) {
+                        return msgs;
+                    }
                     return prev;
                 });
-            }, 2000); // Poll every 2 seconds
+            };
+
+            fetchMessages(); // Initial fetch
+            const interval = setInterval(fetchMessages, 2000); // Poll every 2 seconds
             return () => clearInterval(interval);
         }
     }, [isOpen]);
@@ -36,19 +51,25 @@ const CommunityChat: React.FC<CommunityChatProps> = ({ user }) => {
         scrollToBottom();
     }, [messages]);
 
-    const handleSendMessage = (e: React.FormEvent) => {
+    const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newMessage.trim()) return;
         setError(null);
 
         try {
+            // Note: db.sendMessage is synchronous (void) in the current db adapter for socket.emit, 
+            // but it's good practice to treat it as potentially async or fire-and-forget
             db.sendMessage(user.userId, user.username, newMessage.trim());
             setNewMessage("");
-            setMessages(db.getMessages()); // Immediate update
+            // Immediate fetch to update UI, though polling will catch it too
+            const msgs = await db.getMessages();
+            setMessages(msgs);
         } catch (err: any) {
             setError(err.message);
         }
     };
+
+    if (!settings) return null; // Wait for settings to load
 
     if (!settings.chatEnabled) {
         if (!isOpen) return null; // Hide if closed and disabled
@@ -132,3 +153,4 @@ const CommunityChat: React.FC<CommunityChatProps> = ({ user }) => {
 };
 
 export default CommunityChat;
+

@@ -182,16 +182,22 @@ app.post('/api/products', async (req, res) => {
         // Check if update or create
         if (productData._id) {
             const updated = await Product.findByIdAndUpdate(productData._id, productData, { new: true });
+            const allProducts = await Product.find();
+            io.emit('products_update', allProducts);
             return res.json(updated);
         }
         // Check by id field
         const existing = await Product.findOne({ id: productData.id });
         if (existing) {
             const updated = await Product.findOneAndUpdate({ id: productData.id }, productData, { new: true });
+            const allProducts = await Product.find();
+            io.emit('products_update', allProducts);
             return res.json(updated);
         }
         const newProduct = new Product(productData);
         await newProduct.save();
+        const allProducts = await Product.find();
+        io.emit('products_update', allProducts);
         res.status(201).json(newProduct);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -201,6 +207,8 @@ app.post('/api/products', async (req, res) => {
 app.delete('/api/products/:id', async (req, res) => {
     try {
         await Product.findOneAndDelete({ id: req.params.id });
+        const allProducts = await Product.find();
+        io.emit('products_update', allProducts);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -222,15 +230,21 @@ app.post('/api/categories', async (req, res) => {
         const catData = req.body;
         if (catData._id) {
             const updated = await Category.findByIdAndUpdate(catData._id, catData, { new: true });
+            const allCats = await Category.find();
+            io.emit('categories_update', allCats);
             return res.json(updated);
         }
         const existing = await Category.findOne({ id: catData.id });
         if (existing) {
             const updated = await Category.findOneAndUpdate({ id: catData.id }, catData, { new: true });
+            const allCats = await Category.find();
+            io.emit('categories_update', allCats);
             return res.json(updated);
         }
         const newCat = new Category(catData);
         await newCat.save();
+        const allCats = await Category.find();
+        io.emit('categories_update', allCats);
         res.status(201).json(newCat);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -240,6 +254,8 @@ app.post('/api/categories', async (req, res) => {
 app.delete('/api/categories/:id', async (req, res) => {
     try {
         await Category.findOneAndDelete({ id: req.params.id });
+        const allCats = await Category.find();
+        io.emit('categories_update', allCats);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
