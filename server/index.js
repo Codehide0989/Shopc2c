@@ -5,7 +5,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import { User, Product, Category, Review, ChatMessage, AppSettings, Permission, Coupon, ServerLog, ForumPost, C2CIde } from './models/index.js';
+import { User, Product, Category, Review, ChatMessage, AppSettings, Permission, Coupon, ServerLog, ForumPost, C2CIde, Order } from './models/index.js';
 
 process.on('uncaughtException', (err) => {
     console.error('Uncaught Exception:', err);
@@ -826,6 +826,40 @@ app.delete('/api/c2cide/:id', async (req, res) => {
     try {
         await C2CIde.findOneAndDelete({ id: req.params.id });
         res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- Orders Routes ---
+app.get('/api/orders', async (req, res) => {
+    try {
+        const orders = await Order.find().sort({ timestamp: -1 });
+        res.json(orders);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/orders', async (req, res) => {
+    try {
+        const newOrder = new Order(req.body);
+        await newOrder.save();
+        res.status(201).json(newOrder);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/api/orders/:id/status', async (req, res) => {
+    try {
+        const { status } = req.body;
+        const order = await Order.findOneAndUpdate(
+            { id: req.params.id },
+            { status },
+            { new: true }
+        );
+        res.json(order);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

@@ -425,7 +425,13 @@ const ProductDetail: React.FC<ProductDetailProps> = ({ product, user, onBack, on
 
                                     {hasPurchased ? (
                                         <button
-                                            onClick={() => window.open(product.downloadUrl || "#", "_blank")}
+                                            onClick={async () => {
+                                                if (user && product.priceInr === 0) {
+                                                    // Ensure free products are added to library locally + logic
+                                                    await db.grantPermission(user.userId, product.id);
+                                                }
+                                                window.open(product.downloadUrl || "#", "_blank");
+                                            }}
                                             className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-4 rounded-xl font-bold shadow-[0_0_30px_rgba(16,185,129,0.3)] transition transform hover:-translate-y-1 flex items-center justify-center gap-3 text-lg group/btn"
                                         >
                                             <i className="fa-solid fa-download group-hover/btn:animate-bounce"></i> Download Asset

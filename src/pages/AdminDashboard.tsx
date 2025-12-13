@@ -393,7 +393,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, onBackT
                     <div>
                         {!collapsed && <p className="px-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 animate-in fade-in">Management</p>}
                         {[
-                            'overview', 'products', 'categories', 'users', 'access', 'reviews', 'orders', 'coupons', 'forum', 'c2cide'
+                            'overview', 'products', 'categories', 'users', 'access', 'reviews', 'orders', 'coupons', 'chat', 'forum', 'c2cide'
                         ].map((tab) => (
                             <button
                                 key={tab}

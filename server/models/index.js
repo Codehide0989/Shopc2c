@@ -133,6 +133,24 @@ const c2cIdeSchema = new mongoose.Schema({
     createdAt: { type: Number, default: Date.now }
 });
 
+const orderSchema = new mongoose.Schema({
+    id: { type: String, required: true, unique: true },
+    userId: { type: String, required: true, index: true },
+    productId: { type: String, required: true },
+    productTitle: { type: String, required: true },
+    amount: { type: Number, required: true },
+    currency: { type: String, default: 'INR' },
+    status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+    timestamp: { type: Number, default: Date.now }
+});
+
+// Indexes for performance
+userSchema.index({ userId: 1 });
+userSchema.index({ email: 1 });
+productSchema.index({ id: 1 });
+permissionSchema.index({ userId: 1, productId: 1 });
+chatMessageSchema.index({ timestamp: -1 });
+
 export const User = mongoose.model('User', userSchema);
 export const Product = mongoose.model('Product', productSchema);
 export const Category = mongoose.model('Category', categorySchema);
@@ -144,3 +162,4 @@ export const AppSettings = mongoose.model('AppSettings', appSettingsSchema);
 export const ServerLog = mongoose.model('ServerLog', serverLogSchema);
 export const ForumPost = mongoose.model('ForumPost', forumPostSchema);
 export const C2CIde = mongoose.model('C2CIde', c2cIdeSchema);
+export const Order = mongoose.model('Order', orderSchema);
